@@ -2,7 +2,10 @@ use oxc_ast::ast::{Expression, Program, TSType, VariableDeclarator};
 use oxc_ast_visit::{Visit, walk::walk_variable_declarator};
 use oxc_span::GetSpan;
 
-use crate::{Diagnostic, Phase, TextRange};
+use crate::{
+    Diagnostic, Phase, TextRange,
+    types::{TypeId, TypeKind, TypeStore},
+};
 
 pub(crate) fn check(program: &Program<'_>) -> Vec<Diagnostic> {
     let mut checker = Checker::default();
@@ -13,6 +16,7 @@ pub(crate) fn check(program: &Program<'_>) -> Vec<Diagnostic> {
 #[derive(Default)]
 struct Checker {
     diagnostics: Vec<Diagnostic>,
+    types: TypeStore,
 }
 
 impl<'a> Visit<'a> for Checker {
@@ -20,12 +24,18 @@ impl<'a> Visit<'a> for Checker {
         if let (Some(annotation), Some(initializer)) =
             (&declaration.type_annotation, &declaration.init)
             && let (Some(expected), Some(actual)) = (
-                Primitive::from_annotation(&annotation.type_annotation),
-                Primitive::from_expression(initializer),
+                self.type_from_annotation(&annotation.type_annotation),
+                self.type_from_expression(initializer),
             )
-            && !expected.accepts(actual)
+            && !self.is_assignable(actual, expected)
         {
             let span = initializer.span();
+            let Some(actual) = self.types.kind(actual) else {
+                unreachable!("checker produced a TypeId outside its own store")
+            };
+            let Some(expected) = self.types.kind(expected) else {
+                unreachable!("checker produced a TypeId outside its own store")
+            };
             self.diagnostics.push(Diagnostic::new(
                 "TS2322",
                 format!("Type '{actual}' is not assignable to type '{expected}'."),
@@ -38,70 +48,52 @@ impl<'a> Visit<'a> for Checker {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Primitive {
-    Any,
-    Unknown,
-    Boolean,
-    BigInt,
-    Null,
-    Number,
-    String,
-    Undefined,
-}
-
-impl Primitive {
-    fn from_annotation(annotation: &TSType<'_>) -> Option<Self> {
+impl Checker {
+    fn type_from_annotation(&self, annotation: &TSType<'_>) -> Option<TypeId> {
+        let primitives = self.types.primitives();
         match annotation {
-            TSType::TSAnyKeyword(_) => Some(Self::Any),
-            TSType::TSUnknownKeyword(_) => Some(Self::Unknown),
-            TSType::TSBooleanKeyword(_) => Some(Self::Boolean),
-            TSType::TSBigIntKeyword(_) => Some(Self::BigInt),
-            TSType::TSNullKeyword(_) => Some(Self::Null),
-            TSType::TSNumberKeyword(_) => Some(Self::Number),
-            TSType::TSStringKeyword(_) => Some(Self::String),
-            TSType::TSUndefinedKeyword(_) => Some(Self::Undefined),
+            TSType::TSAnyKeyword(_) => Some(primitives.any),
+            TSType::TSUnknownKeyword(_) => Some(primitives.unknown),
+            TSType::TSNeverKeyword(_) => Some(primitives.never),
+            TSType::TSVoidKeyword(_) => Some(primitives.void),
+            TSType::TSUndefinedKeyword(_) => Some(primitives.undefined),
+            TSType::TSNullKeyword(_) => Some(primitives.null),
+            TSType::TSBooleanKeyword(_) => Some(primitives.boolean),
+            TSType::TSNumberKeyword(_) => Some(primitives.number),
+            TSType::TSBigIntKeyword(_) => Some(primitives.bigint),
+            TSType::TSStringKeyword(_) => Some(primitives.string),
             TSType::TSParenthesizedType(parenthesized) => {
-                Self::from_annotation(&parenthesized.type_annotation)
+                self.type_from_annotation(&parenthesized.type_annotation)
             }
             _ => None,
         }
     }
 
-    fn from_expression(expression: &Expression<'_>) -> Option<Self> {
+    fn type_from_expression(&self, expression: &Expression<'_>) -> Option<TypeId> {
+        let primitives = self.types.primitives();
         match expression {
-            Expression::BooleanLiteral(_) => Some(Self::Boolean),
-            Expression::BigIntLiteral(_) => Some(Self::BigInt),
-            Expression::NullLiteral(_) => Some(Self::Null),
-            Expression::NumericLiteral(_) => Some(Self::Number),
-            Expression::StringLiteral(_) | Expression::TemplateLiteral(_) => Some(Self::String),
+            Expression::BooleanLiteral(_) => Some(primitives.boolean),
+            Expression::BigIntLiteral(_) => Some(primitives.bigint),
+            Expression::NullLiteral(_) => Some(primitives.null),
+            Expression::NumericLiteral(_) => Some(primitives.number),
+            Expression::StringLiteral(_) | Expression::TemplateLiteral(_) => {
+                Some(primitives.string)
+            }
             Expression::Identifier(identifier) if identifier.name == "undefined" => {
-                Some(Self::Undefined)
+                Some(primitives.undefined)
             }
             Expression::ParenthesizedExpression(parenthesized) => {
-                Self::from_expression(&parenthesized.expression)
+                self.type_from_expression(&parenthesized.expression)
             }
             _ => None,
         }
     }
 
-    const fn accepts(self, actual: Self) -> bool {
-        matches!(self, Self::Any | Self::Unknown) || self as u8 == actual as u8
-    }
-}
-
-impl std::fmt::Display for Primitive {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = match self {
-            Self::Any => "any",
-            Self::Unknown => "unknown",
-            Self::Boolean => "boolean",
-            Self::BigInt => "bigint",
-            Self::Null => "null",
-            Self::Number => "number",
-            Self::String => "string",
-            Self::Undefined => "undefined",
-        };
-        formatter.write_str(name)
+    fn is_assignable(&self, source: TypeId, target: TypeId) -> bool {
+        source == target
+            || matches!(
+                self.types.kind(target),
+                Some(TypeKind::Any | TypeKind::Unknown)
+            )
     }
 }

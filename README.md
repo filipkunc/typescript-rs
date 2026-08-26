@@ -1,5 +1,7 @@
 # TypeScript in Rust
 
+[![CI](https://github.com/filipkunc/typescript-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/filipkunc/typescript-rs/actions/workflows/ci.yml)
+
 `typescript-rs` is an experiment in implementing TypeScript's type checker in Rust. The
 command-line executable remains the shorter `tsrs`. The project uses
 [Oxc](https://oxc.rs/) for parsing and syntax-level semantic analysis, leaving this
@@ -68,3 +70,7 @@ synchronization.
 
 See [Goals.md](Goals.md), [architecture](docs/architecture.md), and
 [bootstrap research](docs/bootstrap-research.md) for scope and design rationale.
+
+## License
+
+Licensed under either the Apache License, Version 2.0 or the MIT License, at your option.

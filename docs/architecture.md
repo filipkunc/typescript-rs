@@ -23,7 +23,7 @@ parallel only after module resolution and dependency tracking exist.
 Grow the checker around explicit operations instead of mirroring the monolithic upstream
 checker:
 
-1. interned type identities and primitive/literal types;
+1. interned type identities and primitive/literal types (primitive identities are now in place);
 2. symbol types and annotation resolution;
 3. assignability with recursion guards and relation caches;
 4. expression inference and contextual typing;
