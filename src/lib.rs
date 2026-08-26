@@ -6,6 +6,7 @@
 
 mod checker;
 mod diagnostic;
+mod relations;
 pub mod types;
 
 use oxc_allocator::Allocator;

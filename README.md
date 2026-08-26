@@ -16,9 +16,10 @@ This repository is in its bootstrap phase. Today it provides a thin working pipe
 TypeScript source -> Oxc parser -> Oxc binder -> tsrs checker -> owned diagnostics
 ```
 
-The checker currently recognizes primitive literal initializers on explicitly typed
-variable declarations. This intentionally small feature is present to exercise the API,
-CLI, conformance harness, and benchmark before the type model grows.
+The checker currently recognizes primitive and literal types, canonicalized unions, and
+non-generic top-level type aliases on explicitly typed variable declarations. This
+intentionally small feature is present to exercise the API, CLI, conformance harness,
+and benchmark before the type model grows into object, array, and map-shaped types.
 
 ## Try it
 
@@ -38,7 +39,7 @@ prompts you, then press **F5**. The default launch configuration builds `tsrs` w
 Cargo and checks the repository's `example.ts` under the debugger.
 
 For a useful first breakpoint, open `src/checker.rs` and place it on the diagnostic
-branch inside `Checker::visit_variable_declarator`. The example contains a deliberate
+branch inside `Checker::check_variable_declarator`. The example contains a deliberate
 type error that reaches this branch.
 
 The Run and Debug selector also contains **Debug conformance case**. It prompts for a

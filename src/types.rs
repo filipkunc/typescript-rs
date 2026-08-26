@@ -14,11 +14,30 @@ impl TypeId {
     }
 }
 
+/// An equality- and hash-safe JavaScript number used as a literal type key.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct NumberLiteral(u64);
+
+impl NumberLiteral {
+    /// Construct a numeric literal, canonicalizing negative zero to zero.
+    #[must_use]
+    pub fn new(value: f64) -> Self {
+        let value = if value == 0.0 { 0.0 } else { value };
+        Self(value.to_bits())
+    }
+
+    /// Recover the numeric value.
+    #[must_use]
+    pub fn value(self) -> f64 {
+        f64::from_bits(self.0)
+    }
+}
+
 /// The structural key for an interned TypeScript type.
 ///
-/// Compound and literal types will be added here as their checker behavior is
-/// introduced. Keeping this key structural ensures equivalent types share one
-/// compact [`TypeId`].
+/// New compound types are added here as their checker behavior is introduced.
+/// Keeping this key structural ensures equivalent types share one compact
+/// [`TypeId`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum TypeKind {
@@ -33,7 +52,10 @@ pub enum TypeKind {
     BigInt,
     String,
     BooleanLiteral(bool),
+    NumberLiteral(NumberLiteral),
+    BigIntLiteral(String),
     StringLiteral(String),
+    Union(Box<[TypeId]>),
 }
 
 impl fmt::Display for TypeKind {
@@ -50,7 +72,10 @@ impl fmt::Display for TypeKind {
             Self::BigInt => "bigint",
             Self::String => "string",
             Self::BooleanLiteral(value) => return value.fmt(formatter),
+            Self::NumberLiteral(value) => return value.value().fmt(formatter),
+            Self::BigIntLiteral(value) => return write!(formatter, "{value}n"),
             Self::StringLiteral(value) => return write!(formatter, "\"{value}\""),
+            Self::Union(members) => return write!(formatter, "union({} members)", members.len()),
         };
         formatter.write_str(name)
     }
@@ -133,6 +158,47 @@ impl TypeStore {
         insert_new(&mut self.kinds, &mut self.interned, kind)
     }
 
+    /// Construct a normalized union from a sequence of type identities.
+    ///
+    /// Nested unions are flattened, duplicates and `never` are removed, and
+    /// members are sorted so equivalent unions receive the same identity.
+    pub fn union(&mut self, members: impl IntoIterator<Item = TypeId>) -> TypeId {
+        let primitives = self.primitives();
+        let mut stack: Vec<_> = members.into_iter().collect();
+        let mut normalized = Vec::with_capacity(stack.len());
+        let mut includes_any = false;
+        let mut includes_unknown = false;
+
+        while let Some(member) = stack.pop() {
+            if member == primitives.any {
+                includes_any = true;
+            } else if member == primitives.unknown {
+                includes_unknown = true;
+            } else if member != primitives.never {
+                if let Some(TypeKind::Union(nested)) = self.kind(member) {
+                    stack.extend(nested.iter().copied());
+                } else {
+                    normalized.push(member);
+                }
+            }
+        }
+
+        if includes_any {
+            return primitives.any;
+        }
+        if includes_unknown {
+            return primitives.unknown;
+        }
+
+        normalized.sort_unstable();
+        normalized.dedup();
+        match normalized.as_slice() {
+            [] => primitives.never,
+            [only] => *only,
+            _ => self.intern(TypeKind::Union(normalized.into_boxed_slice())),
+        }
+    }
+
     /// Resolve a type identity to its structural key.
     #[must_use]
     pub fn kind(&self, id: TypeId) -> Option<&TypeKind> {
@@ -141,6 +207,25 @@ impl TypeStore {
             return PRIMITIVE_KINDS.get(index);
         }
         self.kinds.get(index - PRIMITIVE_KINDS.len())
+    }
+
+    /// Format a type identity, resolving compound members through this store.
+    #[must_use]
+    pub const fn display(&self, id: TypeId) -> TypeDisplay<'_> {
+        TypeDisplay { store: self, id }
+    }
+
+    /// Widen a fresh literal type to its primitive counterpart.
+    #[must_use]
+    pub fn widen_literal(&self, id: TypeId) -> TypeId {
+        let primitives = self.primitives();
+        match self.kind(id) {
+            Some(TypeKind::BooleanLiteral(_)) => primitives.boolean,
+            Some(TypeKind::NumberLiteral(_)) => primitives.number,
+            Some(TypeKind::BigIntLiteral(_)) => primitives.bigint,
+            Some(TypeKind::StringLiteral(_)) => primitives.string,
+            _ => id,
+        }
     }
 
     /// Number of unique types currently interned.
@@ -153,6 +238,31 @@ impl TypeStore {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         false
+    }
+}
+
+/// Display adapter for an interned type.
+pub struct TypeDisplay<'a> {
+    store: &'a TypeStore,
+    id: TypeId,
+}
+
+impl fmt::Display for TypeDisplay<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Some(kind) = self.store.kind(self.id) else {
+            return formatter.write_str("<invalid type>");
+        };
+        if let TypeKind::Union(members) = kind {
+            for (index, member) in members.iter().enumerate() {
+                if index > 0 {
+                    formatter.write_str(" | ")?;
+                }
+                self.store.display(*member).fmt(formatter)?;
+            }
+            Ok(())
+        } else {
+            kind.fmt(formatter)
+        }
     }
 }
 
@@ -191,13 +301,17 @@ const fn primitive_id(kind: &TypeKind) -> Option<TypeId> {
         TypeKind::Number => Some(PRIMITIVE_TYPES.number),
         TypeKind::BigInt => Some(PRIMITIVE_TYPES.bigint),
         TypeKind::String => Some(PRIMITIVE_TYPES.string),
-        TypeKind::BooleanLiteral(_) | TypeKind::StringLiteral(_) => None,
+        TypeKind::BooleanLiteral(_)
+        | TypeKind::NumberLiteral(_)
+        | TypeKind::BigIntLiteral(_)
+        | TypeKind::StringLiteral(_)
+        | TypeKind::Union(_) => None,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{TypeKind, TypeStore};
+    use super::{NumberLiteral, TypeKind, TypeStore};
 
     #[test]
     fn primitives_have_canonical_ids() {
@@ -221,5 +335,24 @@ mod tests {
             types.kind(first),
             Some(&TypeKind::StringLiteral("tsrs".to_owned()))
         );
+    }
+
+    #[test]
+    fn unions_are_flattened_sorted_and_deduplicated() {
+        let mut types = TypeStore::new();
+        let string = types.primitives().string;
+        let number = types.primitives().number;
+        let first = types.union([string, number, string]);
+        let second = types.union([number, string]);
+        let nested = types.union([first, types.primitives().never]);
+
+        assert_eq!(first, second);
+        assert_eq!(first, nested);
+        assert_eq!(types.display(first).to_string(), "number | string");
+    }
+
+    #[test]
+    fn number_literals_canonicalize_negative_zero() {
+        assert_eq!(NumberLiteral::new(-0.0), NumberLiteral::new(0.0));
     }
 }

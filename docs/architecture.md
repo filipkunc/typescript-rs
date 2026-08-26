@@ -23,12 +23,12 @@ parallel only after module resolution and dependency tracking exist.
 Grow the checker around explicit operations instead of mirroring the monolithic upstream
 checker:
 
-1. interned type identities and primitive/literal types (primitive identities are now in place);
-2. symbol types and annotation resolution;
-3. assignability with recursion guards and relation caches;
-4. expression inference and contextual typing;
-5. control-flow narrowing;
-6. generics, object types, signatures, unions, intersections, and conditional types.
+1. interned primitive and literal type identities with canonical unions (initial support is in place);
+2. annotation resolution (initial top-level, non-generic aliases are in place);
+3. assignability with recursion guards and relation caches (initial support is in place);
+4. object, array, tuple, and index-signature types;
+5. expression inference, contextual typing, and control-flow narrowing;
+6. generics, signatures, intersections, and conditional types.
 
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.

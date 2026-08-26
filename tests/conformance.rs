@@ -2,13 +2,22 @@ use std::{env, fs, path::Path};
 
 use typescript_rs::check_source;
 
-const REGISTERED_CASES: &[&str] = &["primitive_literals.ts", "valid_primitive_literals.ts"];
+const REGISTERED_CASES: &[&str] = &[
+    "literal_union_aliases.ts",
+    "primitive_literals.ts",
+    "valid_primitive_literals.ts",
+];
 
 // Keep these as ordinary, explicitly named Rust tests. rust-analyzer can then
 // expose each TypeScript fixture as its own item in VS Code's Test Explorer.
 #[test]
 fn primitive_literals() {
     run_case("primitive_literals.ts");
+}
+
+#[test]
+fn literal_union_aliases() {
+    run_case("literal_union_aliases.ts");
 }
 
 #[test]

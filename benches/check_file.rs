@@ -11,9 +11,21 @@ export function repeat(value: string, count: number): string[] {
 }
 "#;
 
+const LITERAL_UNION_SOURCE: &str = r#"
+type Status = "open" | "closed";
+type Result = Status | "failed";
+
+export const open: Status = "open";
+export const failed: Result = "failed";
+export const invalid: Status = "pending";
+"#;
+
 fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/small_file", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SOURCE));
+    });
+    criterion.bench_function("parse_bind_check/literal_unions", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", LITERAL_UNION_SOURCE));
     });
 }
 
