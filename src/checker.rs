@@ -69,9 +69,12 @@ impl<'a> Checker<'a> {
         };
         if self.needs_structural_diagnostics(initializer, expected) {
             let expected_text = self.annotation_text(&annotation.type_annotation).to_owned();
-            if let Some(diagnostics) =
-                self.structural_diagnostics(initializer, expected, Some(&expected_text))
-            {
+            if let Some(diagnostics) = self.structural_diagnostics(
+                initializer,
+                expected,
+                Some(&expected_text),
+                Some(declaration.id.span()),
+            ) {
                 if !diagnostics.is_empty() {
                     self.diagnostics.extend(diagnostics);
                     return;
@@ -87,7 +90,7 @@ impl<'a> Checker<'a> {
             return;
         }
 
-        let span = initializer.span();
+        let span = declaration.id.span();
         let actual = self.diagnostic_source_type(actual, expected);
         let actual = self.types.display(actual).to_string();
         let expected = self.annotation_text(&annotation.type_annotation).to_owned();
@@ -355,14 +358,26 @@ impl<'a> Checker<'a> {
         expression: &Expression<'a>,
         target: TypeId,
         target_label: Option<&str>,
+        anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
         if let Expression::ParenthesizedExpression(parenthesized) = expression {
-            return self.structural_diagnostics(&parenthesized.expression, target, target_label);
+            return self.structural_diagnostics(
+                &parenthesized.expression,
+                target,
+                target_label,
+                anchor,
+            );
         }
 
         if let Some(TypeKind::Union(members)) = self.types.kind(target) {
             let members = members.to_vec();
-            return self.union_structural_diagnostics(expression, target, &members, target_label);
+            return self.union_structural_diagnostics(
+                expression,
+                target,
+                &members,
+                target_label,
+                anchor,
+            );
         }
 
         match (expression, self.types.kind(target)) {
@@ -374,6 +389,7 @@ impl<'a> Checker<'a> {
                     target,
                     &properties,
                     target_label,
+                    anchor,
                 )
             }
             (Expression::ArrayExpression(array), Some(TypeKind::Array(element))) => {
@@ -381,7 +397,7 @@ impl<'a> Checker<'a> {
                 self.array_structural_diagnostics(array, element)
             }
             _ => Some(
-                self.type_mismatch_diagnostic(expression, target, target_label)
+                self.type_mismatch_diagnostic(expression, target, target_label, anchor)
                     .into_iter()
                     .collect(),
             ),
@@ -394,6 +410,7 @@ impl<'a> Checker<'a> {
         target: TypeId,
         members: &[TypeId],
         target_label: Option<&str>,
+        anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
         let candidates: Vec<_> = match expression {
             Expression::ObjectExpression(_) => members
@@ -410,7 +427,9 @@ impl<'a> Checker<'a> {
         };
         let mut best = None;
         for candidate in candidates {
-            let Some(diagnostics) = self.structural_diagnostics(expression, candidate, None) else {
+            let Some(diagnostics) =
+                self.structural_diagnostics(expression, candidate, None, anchor)
+            else {
                 continue;
             };
             if diagnostics.is_empty() {
@@ -425,7 +444,7 @@ impl<'a> Checker<'a> {
         }
         best.or_else(|| {
             Some(
-                self.type_mismatch_diagnostic(expression, target, target_label)
+                self.type_mismatch_diagnostic(expression, target, target_label, anchor)
                     .into_iter()
                     .collect(),
             )
@@ -439,6 +458,7 @@ impl<'a> Checker<'a> {
         target: TypeId,
         properties: &[ObjectTypeProperty],
         target_label: Option<&str>,
+        anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
         if object.properties.iter().any(|member| {
             !matches!(member, ObjectPropertyKind::ObjectProperty(property) if !property.computed && !property.method)
@@ -483,7 +503,7 @@ impl<'a> Checker<'a> {
                         property.name
                     ),
                     Phase::Check,
-                    Some(Self::range(object.span)),
+                    Some(Self::range(anchor.unwrap_or(object.span))),
                 ));
             }
         }
@@ -498,6 +518,7 @@ impl<'a> Checker<'a> {
                     &source.value,
                     property.type_id,
                     None,
+                    Some(source.key.span()),
                 )?);
             } else {
                 let expected = self.target_text(target, target_label);
@@ -525,6 +546,7 @@ impl<'a> Checker<'a> {
                 item.as_expression()?,
                 element,
                 None,
+                None,
             )?);
         }
         Some(diagnostics)
@@ -535,6 +557,7 @@ impl<'a> Checker<'a> {
         expression: &Expression<'a>,
         target: TypeId,
         target_label: Option<&str>,
+        anchor: Option<oxc_span::Span>,
     ) -> Option<Diagnostic> {
         let actual = self.type_from_expression(expression, Some(target))?;
         if self.relations.is_assignable(&self.types, actual, target) {
@@ -547,7 +570,7 @@ impl<'a> Checker<'a> {
             "TS2322",
             format!("Type '{actual}' is not assignable to type '{expected}'."),
             Phase::Check,
-            Some(Self::range(expression.span())),
+            Some(Self::range(anchor.unwrap_or_else(|| expression.span()))),
         ))
     }
 

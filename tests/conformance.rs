@@ -10,6 +10,7 @@ const REGISTERED_CASES: &[&str] = &[
     "array_object_literals.ts",
     "array_primitive.ts",
     "contextual_union_shapes.ts",
+    "diagnostic_assignment_anchors.ts",
     "json_shaped_values_complete.ts",
     "literal_union_aliases.ts",
     "negative_numeric_literals.ts",
@@ -93,6 +94,11 @@ fn array_empty() {
 #[test]
 fn contextual_union_shapes() {
     run_case("contextual_union_shapes.ts");
+}
+
+#[test]
+fn diagnostic_assignment_anchors() {
+    run_case("diagnostic_assignment_anchors.ts");
 }
 
 #[test]

@@ -1,1 +1,1 @@
-TS2741@4:27 [check] Property 'name' is missing in type '{ id: number }' but required in type 'User'.
+TS2741@4:7 [check] Property 'name' is missing in type '{ id: number }' but required in type 'User'.

@@ -1,6 +1,6 @@
-TS2322@7:25 [check] Type '"pending"' is not assignable to type 'Status'.
-TS2322@8:30 [check] Type '"closed"' is not assignable to type '"open"'.
-TS2322@12:27 [check] Type 'false' is not assignable to type 'Enabled'.
-TS2322@17:26 [check] Type '"missing"' is not assignable to type 'Forward'.
-TS2322@21:19 [check] Type '22' is not assignable to type 'Port'.
-TS2322@25:18 [check] Type '2n' is not assignable to type 'Bit'.
+TS2322@7:7 [check] Type '"pending"' is not assignable to type 'Status'.
+TS2322@8:7 [check] Type '"closed"' is not assignable to type '"open"'.
+TS2322@12:7 [check] Type 'false' is not assignable to type 'Enabled'.
+TS2322@17:7 [check] Type '"missing"' is not assignable to type 'Forward'.
+TS2322@21:7 [check] Type '22' is not assignable to type 'Port'.
+TS2322@25:7 [check] Type '2n' is not assignable to type 'Bit'.
