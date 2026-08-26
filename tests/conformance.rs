@@ -3,7 +3,22 @@ use std::{env, fs, path::Path};
 use typescript_rs::check_source;
 
 const REGISTERED_CASES: &[&str] = &[
+    "array_empty.ts",
+    "array_incorrect_element_types.ts",
+    "array_nested.ts",
+    "array_object_element_properties.ts",
+    "array_object_literals.ts",
+    "array_primitive.ts",
+    "contextual_union_shapes.ts",
+    "json_shaped_values_complete.ts",
     "literal_union_aliases.ts",
+    "negative_numeric_literals.ts",
+    "nested_structural_diagnostics.ts",
+    "object_type_excess_properties.ts",
+    "object_type_literals_valid.ts",
+    "object_type_missing_property.ts",
+    "object_type_optional_properties.ts",
+    "object_type_property_types.ts",
     "primitive_literals.ts",
     "valid_primitive_literals.ts",
 ];
@@ -23,6 +38,81 @@ fn literal_union_aliases() {
 #[test]
 fn valid_primitive_literals() {
     run_case("valid_primitive_literals.ts");
+}
+
+#[test]
+fn object_type_literals_valid() {
+    run_case("object_type_literals_valid.ts");
+}
+
+#[test]
+fn object_type_missing_property() {
+    run_case("object_type_missing_property.ts");
+}
+
+#[test]
+fn object_type_optional_properties() {
+    run_case("object_type_optional_properties.ts");
+}
+
+#[test]
+fn object_type_property_types() {
+    run_case("object_type_property_types.ts");
+}
+
+#[test]
+fn array_primitive() {
+    run_case("array_primitive.ts");
+}
+
+#[test]
+fn array_object_literals() {
+    run_case("array_object_literals.ts");
+}
+
+#[test]
+fn array_nested() {
+    run_case("array_nested.ts");
+}
+
+#[test]
+fn array_incorrect_element_types() {
+    run_case("array_incorrect_element_types.ts");
+}
+
+#[test]
+fn array_object_element_properties() {
+    run_case("array_object_element_properties.ts");
+}
+
+#[test]
+fn array_empty() {
+    run_case("array_empty.ts");
+}
+
+#[test]
+fn contextual_union_shapes() {
+    run_case("contextual_union_shapes.ts");
+}
+
+#[test]
+fn json_shaped_values_complete() {
+    run_case("json_shaped_values_complete.ts");
+}
+
+#[test]
+fn negative_numeric_literals() {
+    run_case("negative_numeric_literals.ts");
+}
+
+#[test]
+fn nested_structural_diagnostics() {
+    run_case("nested_structural_diagnostics.ts");
+}
+
+#[test]
+fn object_type_excess_properties() {
+    run_case("object_type_excess_properties.ts");
 }
 
 #[test]

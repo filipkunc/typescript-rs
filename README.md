@@ -16,10 +16,14 @@ This repository is in its bootstrap phase. Today it provides a thin working pipe
 TypeScript source -> Oxc parser -> Oxc binder -> tsrs checker -> owned diagnostics
 ```
 
-The checker currently recognizes primitive and literal types, canonicalized unions, and
-non-generic top-level type aliases on explicitly typed variable declarations. This
-intentionally small feature is present to exercise the API, CLI, conformance harness,
-and benchmark before the type model grows into object, array, and map-shaped types.
+The checker currently recognizes primitive and literal types, canonicalized unions, object
+type and object expression literals with required or optional named properties, `T[]` types and
+contextually typed array expressions, and non-generic top-level type aliases on explicitly typed
+variable declarations. Object and array assignability are structural, including objects and
+arrays nested in any combination and inside union targets. Fresh object literals reject excess
+properties, structural diagnostics point to nested properties and array elements, and negative
+numeric literals are supported. `Array<T>` remains follow-up work beyond the completed
+JSON-shaped values milestone.
 
 ## Try it
 

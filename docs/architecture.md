@@ -26,8 +26,10 @@ checker:
 1. interned primitive and literal type identities with canonical unions (initial support is in place);
 2. annotation resolution (initial top-level, non-generic aliases are in place);
 3. assignability with recursion guards and relation caches (initial support is in place);
-4. object, array, tuple, and index-signature types;
-5. expression inference, contextual typing, and control-flow narrowing;
+4. object types and arrays (initial named-property and `T[]` support is in place), followed by
+   tuples and index-signature types;
+5. expression inference and contextual typing (initial object, array, and union-target support is
+   in place), followed by control-flow narrowing;
 6. generics, signatures, intersections, and conditional types.
 
 Each operation should be introduced by focused conformance cases and measured against the
@@ -35,10 +37,12 @@ existing benchmark before broader upstream suites are enabled.
 
 ## Diagnostics and editor use
 
-Diagnostics store UTF-8 byte ranges because that is Oxc's native coordinate system. A
-future LSP adapter must translate these to UTF-16 positions at the boundary. Stable codes,
-owned messages, and deterministic concise rendering support both editor clients and test
-baselines without coupling checker internals to either frontend.
+Diagnostics store UTF-8 byte ranges because that is Oxc's native coordinate system. Structural
+checks walk fresh object and array expressions contextually so missing or excess properties and
+wrongly typed nested values can point at their relevant syntax. A future LSP adapter must
+translate these ranges to UTF-16 positions at the boundary. Stable codes, owned messages, and
+deterministic concise rendering support both editor clients and test baselines without coupling
+checker internals to either frontend.
 
 ## Test synchronization
 

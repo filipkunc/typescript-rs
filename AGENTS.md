@@ -27,9 +27,9 @@ documentation is still the current implementation state.
 - Preserve the allocation-free path for primitive-only checks. Add storage or cloning to hot
   paths only when the modeled type requires it.
 
-## Current milestone: JSON-shaped values
+## Completed milestone: JSON-shaped values
 
-The near-term target is the type-checking subset demonstrated by the
+The checker now covers the type-checking subset demonstrated by the
 [rendered JSON-validator article](https://filipkunc.com/posts/type-json-validator) and its
 [MDX source](https://github.com/filipkunc/FilipKuncCom/blob/main/src/content/posts/type-json-validator/index.mdx):
 
@@ -38,16 +38,18 @@ The near-term target is the type-checking subset demonstrated by the
 - required and optional object properties;
 - primitive, literal, union, and `null` types inside those shapes;
 - top-level non-generic type aliases referring to those types;
-- structural diagnostics for missing, excess, and wrongly typed properties, including at
-  nested locations and inside arrays.
+- structural diagnostics for missing, excess, and wrongly typed properties, including at nested
+  locations and inside arrays;
+- negative numeric values and contextual object or array expressions inside union targets.
 
-This milestone concerns checking the article's hidden typed assignment, not implementing its
-JSON-to-type inferrer, runtime validator generator, or browser UI. Here, JSON "maps" mean
-objects with explicitly declared properties. The milestone does not require tuples, recursive
-types, generics, index signatures, `Record<K, V>`, the standard-library `Map`, functions,
-classes, or control-flow narrowing. Avoid pulling those features in unless they are a small
-prerequisite. Once the milestone is complete, update this section rather than leaving stale
-status for the next session.
+Fresh object literals receive excess-property checks, and diagnostics point to the relevant
+property, value, array element, or containing object. This milestone concerns checking the
+article's hidden typed assignment, not implementing its JSON-to-type inferrer, runtime validator
+generator, or browser UI. Here, JSON "maps" mean objects with explicitly declared properties.
+The milestone does not require tuples, recursive types, generics, index signatures,
+`Record<K, V>`, the standard-library `Map`, functions, classes, or control-flow narrowing.
+Preserve this completed baseline and define the next checker milestone explicitly before
+expanding into those features.
 
 ## Conformance-first workflow
 

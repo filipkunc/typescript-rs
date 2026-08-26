@@ -61,6 +61,27 @@ impl TypeRelations {
             | (Some(TypeKind::NumberLiteral(_)), Some(TypeKind::Number))
             | (Some(TypeKind::BigIntLiteral(_)), Some(TypeKind::BigInt))
             | (Some(TypeKind::StringLiteral(_)), Some(TypeKind::String)) => true,
+            (Some(TypeKind::Object(source)), Some(TypeKind::Object(target))) => {
+                target.iter().all(|target_property| {
+                    let source_property = source
+                        .iter()
+                        .find(|property| property.name == target_property.name);
+                    match source_property {
+                        Some(source_property) => {
+                            (target_property.optional || !source_property.optional)
+                                && self.is_assignable(
+                                    types,
+                                    source_property.type_id,
+                                    target_property.type_id,
+                                )
+                        }
+                        None => target_property.optional,
+                    }
+                })
+            }
+            (Some(TypeKind::Array(source)), Some(TypeKind::Array(target))) => {
+                self.is_assignable(types, *source, *target)
+            }
             _ => false,
         }
     }
@@ -68,7 +89,7 @@ impl TypeRelations {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{TypeKind, TypeStore};
+    use crate::types::{ObjectTypeProperty, TypeKind, TypeStore};
 
     use super::TypeRelations;
 
@@ -85,5 +106,57 @@ mod tests {
         assert!(relations.is_assignable(&types, open, status));
         assert!(relations.is_assignable(&types, open, string));
         assert!(!relations.is_assignable(&types, pending, status));
+    }
+
+    #[test]
+    fn objects_are_assignable_by_required_property_shape() {
+        let mut types = TypeStore::new();
+        let primitives = types.primitives();
+        let target = types.object([
+            ObjectTypeProperty {
+                name: "id".to_owned(),
+                type_id: primitives.number,
+                optional: false,
+            },
+            ObjectTypeProperty {
+                name: "name".to_owned(),
+                type_id: primitives.string,
+                optional: true,
+            },
+        ]);
+        let valid = types.object([ObjectTypeProperty {
+            name: "id".to_owned(),
+            type_id: primitives.number,
+            optional: false,
+        }]);
+        let missing = types.object([ObjectTypeProperty {
+            name: "name".to_owned(),
+            type_id: primitives.string,
+            optional: false,
+        }]);
+        let wrong = types.object([ObjectTypeProperty {
+            name: "id".to_owned(),
+            type_id: primitives.string,
+            optional: false,
+        }]);
+        let mut relations = TypeRelations::default();
+
+        assert!(relations.is_assignable(&types, valid, target));
+        assert!(!relations.is_assignable(&types, missing, target));
+        assert!(!relations.is_assignable(&types, wrong, target));
+    }
+
+    #[test]
+    fn arrays_are_assignable_by_element_type() {
+        let mut types = TypeStore::new();
+        let primitives = types.primitives();
+        let numbers = types.array(primitives.number);
+        let strings = types.array(primitives.string);
+        let empty = types.array(primitives.never);
+        let mut relations = TypeRelations::default();
+
+        assert!(relations.is_assignable(&types, numbers, numbers));
+        assert!(relations.is_assignable(&types, empty, numbers));
+        assert!(!relations.is_assignable(&types, strings, numbers));
     }
 }

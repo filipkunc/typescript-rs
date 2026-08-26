@@ -1,0 +1,2 @@
+TS2741@4:30 [check] Property 'name' is missing in type '{ id: number }' but required in type '{ id: number; name: string }'.
+TS2322@5:43 [check] Type 'boolean' is not assignable to type 'string'.

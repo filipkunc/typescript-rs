@@ -1,0 +1,6 @@
+TS2741@9:14 [check] Property 'name' is missing in type '{}' but required in type '{ contact?: { email: string }; name: string }'.
+TS2322@11:15 [check] Type 'string' is not assignable to type 'number'.
+TS2322@11:35 [check] Type 'boolean' is not assignable to type 'string'.
+TS2741@12:9 [check] Property 'id' is missing in type '{}' but required in type '{ id: number; tags: string[] }'.
+TS2741@12:9 [check] Property 'tags' is missing in type '{}' but required in type '{ id: number; tags: string[] }'.
+TS2322@14:18 [check] Type 'string' is not assignable to type 'number'.

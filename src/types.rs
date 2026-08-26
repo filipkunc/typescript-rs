@@ -33,6 +33,14 @@ impl NumberLiteral {
     }
 }
 
+/// A named property in an interned object type.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ObjectTypeProperty {
+    pub name: String,
+    pub type_id: TypeId,
+    pub optional: bool,
+}
+
 /// The structural key for an interned TypeScript type.
 ///
 /// New compound types are added here as their checker behavior is introduced.
@@ -56,6 +64,8 @@ pub enum TypeKind {
     BigIntLiteral(String),
     StringLiteral(String),
     Union(Box<[TypeId]>),
+    Object(Box<[ObjectTypeProperty]>),
+    Array(TypeId),
 }
 
 impl fmt::Display for TypeKind {
@@ -76,6 +86,10 @@ impl fmt::Display for TypeKind {
             Self::BigIntLiteral(value) => return write!(formatter, "{value}n"),
             Self::StringLiteral(value) => return write!(formatter, "\"{value}\""),
             Self::Union(members) => return write!(formatter, "union({} members)", members.len()),
+            Self::Object(properties) => {
+                return write!(formatter, "object({} properties)", properties.len());
+            }
+            Self::Array(_) => return formatter.write_str("array"),
         };
         formatter.write_str(name)
     }
@@ -199,6 +213,19 @@ impl TypeStore {
         }
     }
 
+    /// Construct an object type with properties in canonical name order.
+    pub fn object(&mut self, properties: impl IntoIterator<Item = ObjectTypeProperty>) -> TypeId {
+        let mut properties: Vec<_> = properties.into_iter().collect();
+        properties.sort_unstable();
+        properties.dedup();
+        self.intern(TypeKind::Object(properties.into_boxed_slice()))
+    }
+
+    /// Construct an array type with the given element type.
+    pub fn array(&mut self, element: TypeId) -> TypeId {
+        self.intern(TypeKind::Array(element))
+    }
+
     /// Resolve a type identity to its structural key.
     #[must_use]
     pub fn kind(&self, id: TypeId) -> Option<&TypeKind> {
@@ -252,16 +279,45 @@ impl fmt::Display for TypeDisplay<'_> {
         let Some(kind) = self.store.kind(self.id) else {
             return formatter.write_str("<invalid type>");
         };
-        if let TypeKind::Union(members) = kind {
-            for (index, member) in members.iter().enumerate() {
-                if index > 0 {
-                    formatter.write_str(" | ")?;
+        match kind {
+            TypeKind::Union(members) => {
+                for (index, member) in members.iter().enumerate() {
+                    if index > 0 {
+                        formatter.write_str(" | ")?;
+                    }
+                    self.store.display(*member).fmt(formatter)?;
                 }
-                self.store.display(*member).fmt(formatter)?;
+                Ok(())
             }
-            Ok(())
-        } else {
-            kind.fmt(formatter)
+            TypeKind::Object(properties) => {
+                if properties.is_empty() {
+                    return formatter.write_str("{}");
+                }
+                formatter.write_str("{ ")?;
+                for (index, property) in properties.iter().enumerate() {
+                    if index > 0 {
+                        formatter.write_str("; ")?;
+                    }
+                    formatter.write_str(&property.name)?;
+                    if property.optional {
+                        formatter.write_str("?")?;
+                    }
+                    formatter.write_str(": ")?;
+                    self.store.display(property.type_id).fmt(formatter)?;
+                }
+                formatter.write_str(" }")
+            }
+            TypeKind::Array(element) => {
+                if matches!(self.store.kind(*element), Some(TypeKind::Union(_))) {
+                    formatter.write_str("(")?;
+                    self.store.display(*element).fmt(formatter)?;
+                    formatter.write_str(")[]")
+                } else {
+                    self.store.display(*element).fmt(formatter)?;
+                    formatter.write_str("[]")
+                }
+            }
+            _ => kind.fmt(formatter),
         }
     }
 }
@@ -305,13 +361,15 @@ const fn primitive_id(kind: &TypeKind) -> Option<TypeId> {
         | TypeKind::NumberLiteral(_)
         | TypeKind::BigIntLiteral(_)
         | TypeKind::StringLiteral(_)
-        | TypeKind::Union(_) => None,
+        | TypeKind::Union(_)
+        | TypeKind::Object(_)
+        | TypeKind::Array(_) => None,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NumberLiteral, TypeKind, TypeStore};
+    use super::{NumberLiteral, ObjectTypeProperty, TypeKind, TypeStore};
 
     #[test]
     fn primitives_have_canonical_ids() {
@@ -354,5 +412,54 @@ mod tests {
     #[test]
     fn number_literals_canonicalize_negative_zero() {
         assert_eq!(NumberLiteral::new(-0.0), NumberLiteral::new(0.0));
+    }
+
+    #[test]
+    fn objects_are_canonicalized_by_property_shape() {
+        let mut types = TypeStore::new();
+        let primitives = types.primitives();
+        let first = types.object([
+            ObjectTypeProperty {
+                name: "name".to_owned(),
+                type_id: primitives.string,
+                optional: false,
+            },
+            ObjectTypeProperty {
+                name: "id".to_owned(),
+                type_id: primitives.number,
+                optional: false,
+            },
+        ]);
+        let second = types.object([
+            ObjectTypeProperty {
+                name: "id".to_owned(),
+                type_id: primitives.number,
+                optional: false,
+            },
+            ObjectTypeProperty {
+                name: "name".to_owned(),
+                type_id: primitives.string,
+                optional: false,
+            },
+        ]);
+
+        assert_eq!(first, second);
+        assert_eq!(
+            types.display(first).to_string(),
+            "{ id: number; name: string }"
+        );
+    }
+
+    #[test]
+    fn arrays_are_canonicalized_by_element_type() {
+        let mut types = TypeStore::new();
+        let number = types.primitives().number;
+        let first = types.array(number);
+        let second = types.array(number);
+        let nested = types.array(first);
+
+        assert_eq!(first, second);
+        assert_eq!(types.display(first).to_string(), "number[]");
+        assert_eq!(types.display(nested).to_string(), "number[][]");
     }
 }
