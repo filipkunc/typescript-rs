@@ -10,6 +10,9 @@ stable enough to justify them.
   syntax diagnostics.
 - `tsrs` owns TypeScript types, assignability, inference, type diagnostics, and eventually
   program/project state.
+- The checker borrows Oxc's `Scoping` for one `check_source` run. Declaration `SymbolId`s and
+  expression `ReferenceId`s connect syntax to tsrs-owned type and signature tables without
+  copying or persisting Oxc semantic data.
 - The public boundary returns owned diagnostics. Neither Oxc AST references nor allocator
   lifetimes escape a single-file check.
 - The CLI is only a frontend. Checker behavior is tested through the library.
@@ -30,22 +33,31 @@ checker:
    place), followed by tuples and index-signature types;
 5. expression inference and contextual typing (initial object, array, and union-target support is
    in place), followed by control-flow narrowing;
-6. generics, signatures, intersections, and conditional types.
+6. signatures (initial explicitly annotated function declarations and direct calls are in place),
+   followed by generics, intersections, and conditional types.
 
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.
 
-## Current milestone: standard array type syntax
+## Current milestone: annotated callable foundations
 
-This checker milestone treats the built-in `Array<T>` type reference as an alternate spelling
-of the existing `T[]` type throughout the completed JSON-shaped subset. It includes primitive,
-literal-union, object, nested-array, and alias element types, with the same contextual checking and
-diagnostic behavior as bracket array syntax.
+This checker milestone adds a deliberately narrow callable layer on top of the completed
+JSON-shaped value subset. It includes function declarations whose parameters and return type are
+all explicit, identifier expression typing for simple parameters, named-function resolution through
+Oxc symbols and references, return-statement assignability, and direct calls to named functions.
+Argument type and exact arity diagnostics follow the pinned TypeScript-Go codes, UTF-16 anchors, and
+normalized messages.
 
-This milestone is intentionally a built-in syntax rule, not general generic type instantiation. It
-does not add user-defined generics, `ReadonlyArray<T>`, tuples, index signatures, array methods, or
-standard-library symbol resolution. Completion requires focused registered fixtures and exact
-diagnostic parity with the pinned TypeScript-Go revision.
+Callable signatures live in a separate per-check store and refer to canonical `TypeId`s for their
+parameter and return types. This keeps callable identity decisions out of `TypeKind`, leaves the
+fixed primitive identities and allocation-free primitive interning path unchanged, and lets the
+existing relation cache continue to own structural assignability.
+
+The milestone excludes inferred return types; arrow and function expressions; closures and captured
+variables; overloads; optional, default, rest, and destructured parameters; generics; methods,
+interfaces, and classes; `this` and `super`; and control-flow narrowing. The intended next sequence
+is property-only interfaces, callable interface members with member access, then classes with
+separate instance and constructor/static sides.
 
 ## Diagnostics and editor use
 

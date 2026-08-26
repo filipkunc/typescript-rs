@@ -49,6 +49,9 @@ impl TypeRelations {
         if target == primitives.any || target == primitives.unknown {
             return true;
         }
+        if source == primitives.undefined && target == primitives.void {
+            return true;
+        }
 
         match (types.kind(source), types.kind(target)) {
             (Some(TypeKind::Union(sources)), _) => sources
@@ -158,5 +161,14 @@ mod tests {
         assert!(relations.is_assignable(&types, numbers, numbers));
         assert!(relations.is_assignable(&types, empty, numbers));
         assert!(!relations.is_assignable(&types, strings, numbers));
+    }
+
+    #[test]
+    fn undefined_is_assignable_to_void() {
+        let types = TypeStore::new();
+        let primitives = types.primitives();
+        let mut relations = TypeRelations::default();
+
+        assert!(relations.is_assignable(&types, primitives.undefined, primitives.void));
     }
 }

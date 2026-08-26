@@ -11,6 +11,11 @@ const REGISTERED_CASES: &[&str] = &[
     "array_object_element_properties.ts",
     "array_object_literals.ts",
     "array_primitive.ts",
+    "callable_argument_errors.ts",
+    "callable_arity_errors.ts",
+    "callable_declarations_valid.ts",
+    "callable_return_errors.ts",
+    "callable_symbol_resolution.ts",
     "contextual_union_shapes.ts",
     "diagnostic_assignment_anchors.ts",
     "json_shaped_values_complete.ts",
@@ -107,6 +112,31 @@ fn array_generic() {
 #[test]
 fn array_generic_errors() {
     run_case("array_generic_errors.ts");
+}
+
+#[test]
+fn callable_argument_errors() {
+    run_case("callable_argument_errors.ts");
+}
+
+#[test]
+fn callable_arity_errors() {
+    run_case("callable_arity_errors.ts");
+}
+
+#[test]
+fn callable_declarations_valid() {
+    run_case("callable_declarations_valid.ts");
+}
+
+#[test]
+fn callable_return_errors() {
+    run_case("callable_return_errors.ts");
+}
+
+#[test]
+fn callable_symbol_resolution() {
+    run_case("callable_symbol_resolution.ts");
 }
 
 #[test]

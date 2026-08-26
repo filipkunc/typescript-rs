@@ -63,6 +63,23 @@ export const config: Config = {
 };
 "#;
 
+const ANNOTATED_CALLABLE_SOURCE: &str = r#"
+type Status = "open" | "closed";
+
+function selectStatus(status: Status): Status {
+    return status;
+}
+
+function echo(value: string): string {
+    return value;
+}
+
+export const selected: Status = selectStatus("open");
+export const message: string = echo("tsrs");
+selectStatus("pending");
+echo(42);
+"#;
+
 fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/small_file", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SOURCE));
@@ -81,6 +98,9 @@ fn check_file(criterion: &mut Criterion) {
     });
     criterion.bench_function("parse_bind_check/structural_diagnostics", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", STRUCTURAL_DIAGNOSTIC_SOURCE));
+    });
+    criterion.bench_function("parse_bind_check/annotated_callables", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", ANNOTATED_CALLABLE_SOURCE));
     });
 }
 

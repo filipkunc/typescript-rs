@@ -4,41 +4,83 @@ use std::{
 };
 
 use oxc_ast::ast::{
-    ArrayExpression, Expression, ObjectExpression, ObjectPropertyKind, Program, Statement,
-    TSLiteral, TSSignature, TSType, TSTypeName, UnaryOperator, VariableDeclarator,
+    ArrayExpression, ArrowFunctionExpression, BindingPattern, CallExpression, Declaration,
+    ExportDefaultDeclarationKind, Expression, Function, FunctionType, IdentifierReference,
+    ObjectExpression, ObjectPropertyKind, Program, ReturnStatement, Statement, TSLiteral,
+    TSSignature, TSType, TSTypeName, UnaryOperator, VariableDeclarator,
 };
-use oxc_ast_visit::{Visit, walk::walk_variable_declarator};
+use oxc_ast_visit::{
+    Visit,
+    walk::{
+        walk_arrow_function_expression, walk_call_expression, walk_function, walk_return_statement,
+        walk_variable_declarator,
+    },
+};
+use oxc_semantic::{ScopeFlags, Scoping, SymbolId};
 use oxc_span::GetSpan;
 
 use crate::{
     Diagnostic, Phase, TextRange,
     relations::TypeRelations,
+    signatures::{Signature, SignatureId, SignatureParameter, SignatureStore},
     types::{NumberLiteral, ObjectTypeProperty, TypeId, TypeKind, TypeStore},
 };
 
-pub(crate) fn check<'a>(program: &'a Program<'a>) -> Vec<Diagnostic> {
-    let aliases = program
-        .body
-        .iter()
-        .filter_map(|statement| match statement {
-            Statement::TSTypeAliasDeclaration(alias) if alias.type_parameters.is_none() => {
-                Some((alias.id.name.as_str(), &alias.type_annotation))
-            }
-            _ => None,
-        })
-        .collect();
-    let mut checker = Checker::new(program.source_text, aliases);
+pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<Diagnostic> {
+    let mut aliases = HashMap::new();
+    let mut functions = Vec::new();
+    for statement in &program.body {
+        if let Statement::TSTypeAliasDeclaration(alias) = statement
+            && alias.type_parameters.is_none()
+        {
+            aliases.insert(alias.id.name.as_str(), &alias.type_annotation);
+        }
+        if let Some(function) = top_level_function(statement) {
+            functions.push(function);
+        }
+    }
+    let mut checker = Checker::new(program.source_text, aliases, scoping);
+    for function in functions {
+        if function
+            .id
+            .as_ref()
+            .and_then(|id| id.symbol_id.get())
+            .is_some_and(|symbol| scoping.symbol_redeclarations(symbol).is_empty())
+        {
+            checker.register_function_signature(function);
+        }
+    }
     checker.visit_program(program);
     checker.diagnostics
 }
 
+fn top_level_function<'a>(statement: &'a Statement<'a>) -> Option<&'a Function<'a>> {
+    match statement {
+        Statement::FunctionDeclaration(function) => Some(function),
+        Statement::ExportDeclaration(export) => match &export.declaration {
+            Declaration::FunctionDeclaration(function) => Some(function),
+            _ => None,
+        },
+        Statement::ExportDefaultDeclaration(export) => match &export.declaration {
+            ExportDefaultDeclarationKind::FunctionDeclaration(function) => Some(function),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 struct Checker<'a> {
     source_text: &'a str,
+    scoping: &'a Scoping,
     aliases: HashMap<&'a str, &'a TSType<'a>>,
     resolving_aliases: HashSet<&'a str>,
     diagnostics: Vec<Diagnostic>,
     types: TypeStore,
     relations: TypeRelations,
+    signatures: SignatureStore,
+    function_signatures: HashMap<SymbolId, SignatureId>,
+    symbol_types: HashMap<SymbolId, TypeId>,
+    current_signature: Option<SignatureId>,
 }
 
 impl<'a> Visit<'a> for Checker<'a> {
@@ -47,18 +89,238 @@ impl<'a> Visit<'a> for Checker<'a> {
 
         walk_variable_declarator(self, declaration);
     }
+
+    fn visit_function(&mut self, function: &Function<'a>, flags: ScopeFlags) {
+        let previous = self.current_signature;
+        self.current_signature = function
+            .id
+            .as_ref()
+            .and_then(|id| id.symbol_id.get())
+            .and_then(|symbol| self.function_signatures.get(&symbol).copied());
+        walk_function(self, function, flags);
+        self.current_signature = previous;
+    }
+
+    fn visit_return_statement(&mut self, statement: &ReturnStatement<'a>) {
+        self.check_return_statement(statement);
+        walk_return_statement(self, statement);
+    }
+
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        self.check_call_expression(call);
+        walk_call_expression(self, call);
+    }
+
+    fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
+        let previous = self.current_signature.take();
+        walk_arrow_function_expression(self, arrow);
+        self.current_signature = previous;
+    }
 }
 
 impl<'a> Checker<'a> {
-    fn new(source_text: &'a str, aliases: HashMap<&'a str, &'a TSType<'a>>) -> Self {
+    fn new(
+        source_text: &'a str,
+        aliases: HashMap<&'a str, &'a TSType<'a>>,
+        scoping: &'a Scoping,
+    ) -> Self {
         Self {
             source_text,
+            scoping,
             aliases,
             resolving_aliases: HashSet::new(),
             diagnostics: Vec::new(),
             types: TypeStore::new(),
             relations: TypeRelations::default(),
+            signatures: SignatureStore::default(),
+            function_signatures: HashMap::new(),
+            symbol_types: HashMap::new(),
+            current_signature: None,
         }
+    }
+
+    fn register_function_signature(&mut self, function: &Function<'a>) {
+        if function.r#type != FunctionType::FunctionDeclaration
+            || function.generator
+            || function.r#async
+            || function.declare
+            || function.type_parameters.is_some()
+            || function.this_param.is_some()
+            || function.params.rest.is_some()
+            || function.body.is_none()
+        {
+            return;
+        }
+        let (Some(id), Some(return_annotation)) = (&function.id, &function.return_type) else {
+            return;
+        };
+        let Some(function_symbol) = id.symbol_id.get() else {
+            return;
+        };
+
+        let mut parameters = Vec::with_capacity(function.params.items.len());
+        let mut parameter_symbols = Vec::with_capacity(function.params.items.len());
+        for parameter in &function.params.items {
+            if parameter.optional
+                || parameter.initializer.is_some()
+                || parameter.accessibility.is_some()
+                || parameter.readonly
+                || parameter.r#override
+                || !parameter.decorators.is_empty()
+            {
+                return;
+            }
+            let BindingPattern::BindingIdentifier(identifier) = &parameter.pattern else {
+                return;
+            };
+            let (Some(symbol), Some(annotation)) = (
+                identifier.symbol_id.get(),
+                parameter.type_annotation.as_ref(),
+            ) else {
+                return;
+            };
+            let Some(type_id) = self.type_from_annotation(&annotation.type_annotation) else {
+                return;
+            };
+            parameters.push(SignatureParameter {
+                type_id,
+                diagnostic_name: self.target_text(type_id, Some(&annotation.type_annotation)),
+            });
+            parameter_symbols.push((symbol, type_id));
+        }
+
+        let Some(return_type) = self.type_from_annotation(&return_annotation.type_annotation)
+        else {
+            return;
+        };
+        let signature = self.signatures.add(Signature {
+            parameters: parameters.into_boxed_slice(),
+            return_type,
+            return_diagnostic_name: self
+                .target_text(return_type, Some(&return_annotation.type_annotation)),
+        });
+        self.function_signatures.insert(function_symbol, signature);
+        self.symbol_types.extend(parameter_symbols);
+    }
+
+    fn check_return_statement(&mut self, statement: &ReturnStatement<'a>) {
+        let Some(signature_id) = self.current_signature else {
+            return;
+        };
+        let Some(signature) = self.signatures.get(signature_id) else {
+            return;
+        };
+        let target = signature.return_type;
+        let expected = signature.return_diagnostic_name.clone();
+        let actual = match &statement.argument {
+            Some(expression) => self.type_from_expression(expression, Some(target)),
+            None => Some(self.types.primitives().undefined),
+        };
+        let Some(actual) = actual else {
+            return;
+        };
+        if self.relations.is_assignable(&self.types, actual, target) {
+            return;
+        }
+        let actual = self.diagnostic_source_type(actual, target);
+        let detail = self.relation_detail(actual, target);
+        self.diagnostics.push(Diagnostic::new(
+            "TS2322",
+            format!(
+                "Type '{}' is not assignable to type '{expected}'.{detail}",
+                self.types.diagnostic_display(actual)
+            ),
+            Phase::Check,
+            Some(Self::range(statement.span)),
+        ));
+    }
+
+    fn check_call_expression(&mut self, call: &CallExpression<'a>) {
+        let Some(signature_id) = self.signature_for_call(call) else {
+            return;
+        };
+        let Some(signature) = self.signatures.get(signature_id) else {
+            return;
+        };
+        let expected_count = signature.parameters.len();
+        let actual_count = call.arguments.len();
+        if actual_count != expected_count {
+            let span = if actual_count < expected_count {
+                call.callee.span()
+            } else {
+                call.arguments[expected_count].span()
+            };
+            self.diagnostics.push(Diagnostic::new(
+                "TS2554",
+                format!("Expected {expected_count} arguments, but got {actual_count}."),
+                Phase::Check,
+                Some(Self::range(span)),
+            ));
+            return;
+        }
+
+        for index in 0..expected_count {
+            let Some(argument) = call.arguments[index].as_expression() else {
+                return;
+            };
+            let Some(parameter) = self
+                .signatures
+                .get(signature_id)
+                .and_then(|signature| signature.parameters.get(index))
+            else {
+                return;
+            };
+            let target = parameter.type_id;
+            let expected = parameter.diagnostic_name.clone();
+            let Some(actual) = self.type_from_expression(argument, Some(target)) else {
+                continue;
+            };
+            if self.relations.is_assignable(&self.types, actual, target) {
+                continue;
+            }
+            let actual = self.diagnostic_source_type(actual, target);
+            let detail = self.relation_detail(actual, target);
+            self.diagnostics.push(Diagnostic::new(
+                "TS2345",
+                format!(
+                    "Argument of type '{}' is not assignable to parameter of type '{expected}'.{detail}",
+                    self.types.diagnostic_display(actual)
+                ),
+                Phase::Check,
+                Some(Self::range(argument.span())),
+            ));
+        }
+    }
+
+    fn signature_for_call(&self, call: &CallExpression<'a>) -> Option<SignatureId> {
+        if call.optional || call.type_arguments.is_some() {
+            return None;
+        }
+        let Expression::Identifier(identifier) = &call.callee else {
+            return None;
+        };
+        let symbol = self.symbol_for_identifier(identifier)?;
+        self.function_signatures.get(&symbol).copied()
+    }
+
+    fn symbol_for_identifier(&self, identifier: &IdentifierReference<'a>) -> Option<SymbolId> {
+        let reference = identifier.reference_id.get()?;
+        self.scoping.get_reference(reference).symbol_id()
+    }
+
+    fn relation_detail(&self, source: TypeId, target: TypeId) -> String {
+        let (Some(TypeKind::Array(source)), Some(TypeKind::Array(target))) =
+            (self.types.kind(source), self.types.kind(target))
+        else {
+            return String::new();
+        };
+        let source = self.diagnostic_source_type(*source, *target);
+        format!(
+            " Type '{}' is not assignable to type '{}'.{}",
+            self.types.diagnostic_display(source),
+            self.types.diagnostic_display(*target),
+            self.relation_detail(source, *target)
+        )
     }
 
     fn check_variable_declarator(&mut self, declaration: &VariableDeclarator<'a>) {
@@ -244,6 +506,13 @@ impl<'a> Checker<'a> {
             Expression::Identifier(identifier) if identifier.name == "undefined" => {
                 Some(primitives.undefined)
             }
+            Expression::Identifier(identifier) => self
+                .symbol_for_identifier(identifier)
+                .and_then(|symbol| self.symbol_types.get(&symbol).copied()),
+            Expression::CallExpression(call) => self
+                .signature_for_call(call)
+                .and_then(|signature| self.signatures.get(signature))
+                .map(|signature| signature.return_type),
             Expression::ArrayExpression(array) => {
                 let element_target = contextual_target
                     .and_then(|target| self.contextual_array_element_target(target));

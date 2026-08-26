@@ -25,6 +25,14 @@ Fresh object literals reject excess properties, structural diagnostics point to 
 and array elements, and negative numeric literals are supported. Built-in `Array<T>` is a syntax
 rule within that existing subset and does not introduce general generics.
 
+The current **annotated callable foundations** milestone also supports named function declarations
+with explicitly typed simple parameters and return types, parameter and function resolution through
+Oxc semantic symbols/references, return-statement checking, and direct calls to named functions.
+Calls report TypeScript-compatible argument and exact-arity diagnostics. Return inference, function
+and arrow expressions, closures, overloads, optional/default/rest/destructured parameters, generics,
+methods, interfaces, classes, `this`/`super`, and control-flow narrowing remain outside this
+milestone.
+
 ## Try it
 
 ```console
@@ -44,7 +52,8 @@ Cargo and checks the repository's `example.ts` under the debugger.
 
 For a useful first breakpoint, open `src/checker.rs` and place it on the diagnostic
 branch inside `Checker::check_variable_declarator`. The example contains a deliberate
-type error that reaches this branch.
+type error that reaches this branch. For callable fixtures, use `Checker::check_return_statement`
+or `Checker::check_call_expression` instead.
 
 The Run and Debug selector also contains **Debug conformance case**. It prompts for a
 named fixture test and launches the Rust test executable under CodeLLDB.

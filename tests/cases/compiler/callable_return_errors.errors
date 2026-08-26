@@ -1,0 +1,3 @@
+TS2322@4:5 [check] Type 'string' is not assignable to type 'number'.
+TS2322@8:5 [check] Type '"not-ok"' is not assignable to type '"ok"'.
+TS2322@12:5 [check] Type 'string[]' is not assignable to type 'number[]'. Type 'string' is not assignable to type 'number'.
