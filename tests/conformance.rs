@@ -17,6 +17,7 @@ const REGISTERED_CASES: &[&str] = &[
     "nested_structural_diagnostics.ts",
     "object_type_excess_properties.ts",
     "object_type_literals_valid.ts",
+    "object_type_missing_properties.ts",
     "object_type_missing_property.ts",
     "object_type_optional_properties.ts",
     "object_type_property_types.ts",
@@ -49,6 +50,11 @@ fn object_type_literals_valid() {
 #[test]
 fn object_type_missing_property() {
     run_case("object_type_missing_property.ts");
+}
+
+#[test]
+fn object_type_missing_properties() {
+    run_case("object_type_missing_properties.ts");
 }
 
 #[test]

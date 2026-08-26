@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 
 use oxc_ast::ast::{
     ArrayExpression, Expression, ObjectExpression, ObjectPropertyKind, Program, Statement,
@@ -67,20 +70,16 @@ impl<'a> Checker<'a> {
         let Some(expected) = self.type_from_annotation(&annotation.type_annotation) else {
             return;
         };
-        if self.needs_structural_diagnostics(initializer, expected) {
-            let expected_text = self.annotation_text(&annotation.type_annotation).to_owned();
-            if let Some(diagnostics) = self.structural_diagnostics(
+        if self.needs_structural_diagnostics(initializer, expected)
+            && let Some(diagnostics) = self.structural_diagnostics(
                 initializer,
                 expected,
-                Some(&expected_text),
+                Some(&annotation.type_annotation),
                 Some(declaration.id.span()),
-            ) {
-                if !diagnostics.is_empty() {
-                    self.diagnostics.extend(diagnostics);
-                    return;
-                }
-                return;
-            }
+            )
+        {
+            self.diagnostics.extend(diagnostics);
+            return;
         }
 
         let Some(actual) = self.type_from_expression(initializer, Some(expected)) else {
@@ -92,8 +91,8 @@ impl<'a> Checker<'a> {
 
         let span = declaration.id.span();
         let actual = self.diagnostic_source_type(actual, expected);
-        let actual = self.types.display(actual).to_string();
-        let expected = self.annotation_text(&annotation.type_annotation).to_owned();
+        let actual = self.types.diagnostic_display(actual).to_string();
+        let expected = self.assignment_target_text(&annotation.type_annotation, expected);
         self.diagnostics.push(Diagnostic::new(
             "TS2322",
             format!("Type '{actual}' is not assignable to type '{expected}'."),
@@ -357,14 +356,14 @@ impl<'a> Checker<'a> {
         &mut self,
         expression: &Expression<'a>,
         target: TypeId,
-        target_label: Option<&str>,
+        target_annotation: Option<&TSType<'a>>,
         anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
         if let Expression::ParenthesizedExpression(parenthesized) = expression {
             return self.structural_diagnostics(
                 &parenthesized.expression,
                 target,
-                target_label,
+                target_annotation,
                 anchor,
             );
         }
@@ -375,7 +374,7 @@ impl<'a> Checker<'a> {
                 expression,
                 target,
                 &members,
-                target_label,
+                target_annotation,
                 anchor,
             );
         }
@@ -388,16 +387,16 @@ impl<'a> Checker<'a> {
                     object,
                     target,
                     &properties,
-                    target_label,
+                    target_annotation,
                     anchor,
                 )
             }
             (Expression::ArrayExpression(array), Some(TypeKind::Array(element))) => {
                 let element = *element;
-                self.array_structural_diagnostics(array, element)
+                self.array_structural_diagnostics(array, element, target_annotation)
             }
             _ => Some(
-                self.type_mismatch_diagnostic(expression, target, target_label, anchor)
+                self.type_mismatch_diagnostic(expression, target, target_annotation, anchor)
                     .into_iter()
                     .collect(),
             ),
@@ -409,9 +408,16 @@ impl<'a> Checker<'a> {
         expression: &Expression<'a>,
         target: TypeId,
         members: &[TypeId],
-        target_label: Option<&str>,
+        target_annotation: Option<&TSType<'a>>,
         anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
+        if let Expression::ObjectExpression(object) = expression {
+            let diagnostics = self.union_object_property_diagnostics(object, target)?;
+            if !diagnostics.is_empty() {
+                return Some(diagnostics);
+            }
+        }
+
         let candidates: Vec<_> = match expression {
             Expression::ObjectExpression(_) => members
                 .iter()
@@ -444,11 +450,36 @@ impl<'a> Checker<'a> {
         }
         best.or_else(|| {
             Some(
-                self.type_mismatch_diagnostic(expression, target, target_label, anchor)
+                self.type_mismatch_diagnostic(expression, target, target_annotation, anchor)
                     .into_iter()
                     .collect(),
             )
         })
+    }
+
+    fn union_object_property_diagnostics(
+        &mut self,
+        object: &ObjectExpression<'a>,
+        target: TypeId,
+    ) -> Option<Vec<Diagnostic>> {
+        let mut diagnostics = Vec::new();
+        for member in &object.properties {
+            let ObjectPropertyKind::ObjectProperty(property) = member else {
+                return None;
+            };
+            let name = property.key.static_name()?;
+            let Some(property_target) = self.contextual_object_property_target(target, &name)
+            else {
+                continue;
+            };
+            diagnostics.extend(self.type_mismatch_diagnostic(
+                &property.value,
+                property_target,
+                None,
+                Some(property.key.span()),
+            ));
+        }
+        Some(diagnostics)
     }
 
     fn object_structural_diagnostics(
@@ -457,7 +488,7 @@ impl<'a> Checker<'a> {
         object: &ObjectExpression<'a>,
         target: TypeId,
         properties: &[ObjectTypeProperty],
-        target_label: Option<&str>,
+        target_annotation: Option<&TSType<'a>>,
         anchor: Option<oxc_span::Span>,
     ) -> Option<Vec<Diagnostic>> {
         if object.properties.iter().any(|member| {
@@ -466,10 +497,10 @@ impl<'a> Checker<'a> {
             return None;
         }
         let mut diagnostics = Vec::new();
-        let has_missing = properties
+        let missing: Vec<_> = properties
             .iter()
             .filter(|property| !property.optional)
-            .any(|property| {
+            .filter(|property| {
                 !object.properties.iter().any(|member| {
                     let ObjectPropertyKind::ObjectProperty(source) = member else {
                         return false;
@@ -479,28 +510,32 @@ impl<'a> Checker<'a> {
                         .static_name()
                         .is_some_and(|name| name == property.name)
                 })
-            });
-        if has_missing {
+            })
+            .collect();
+        if !missing.is_empty() {
             let actual = self.type_from_expression(expression, Some(target))?;
-            let actual = self.types.display(actual).to_string();
-            let expected = self.target_text(target, target_label);
-            for property in properties.iter().filter(|property| {
-                !property.optional
-                    && !object.properties.iter().any(|member| {
-                        let ObjectPropertyKind::ObjectProperty(source) = member else {
-                            return false;
-                        };
-                        source
-                            .key
-                            .static_name()
-                            .is_some_and(|name| name == property.name)
-                    })
-            }) {
+            let actual = self.types.diagnostic_display(actual).to_string();
+            let expected = self.target_text(target, target_annotation);
+            if let [property] = missing.as_slice() {
                 diagnostics.push(Diagnostic::new(
                     "TS2741",
                     format!(
                         "Property '{}' is missing in type '{actual}' but required in type '{expected}'.",
                         property.name
+                    ),
+                    Phase::Check,
+                    Some(Self::range(anchor.unwrap_or(object.span))),
+                ));
+            } else {
+                let names = missing
+                    .iter()
+                    .map(|property| property.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                diagnostics.push(Diagnostic::new(
+                    "TS2739",
+                    format!(
+                        "Type '{actual}' is missing the following properties from type '{expected}': {names}"
                     ),
                     Phase::Check,
                     Some(Self::range(anchor.unwrap_or(object.span))),
@@ -514,14 +549,17 @@ impl<'a> Checker<'a> {
             };
             let name = source.key.static_name()?.into_owned();
             if let Some(property) = properties.iter().find(|property| property.name == name) {
+                let property_annotation = target_annotation.and_then(|annotation| {
+                    self.object_property_annotation(annotation, &property.name)
+                });
                 diagnostics.extend(self.structural_diagnostics(
                     &source.value,
                     property.type_id,
-                    None,
+                    property_annotation,
                     Some(source.key.span()),
                 )?);
             } else {
-                let expected = self.target_text(target, target_label);
+                let expected = self.target_text(target, target_annotation);
                 diagnostics.push(Diagnostic::new(
                     "TS2353",
                     format!(
@@ -539,13 +577,16 @@ impl<'a> Checker<'a> {
         &mut self,
         array: &ArrayExpression<'a>,
         element: TypeId,
+        target_annotation: Option<&TSType<'a>>,
     ) -> Option<Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
+        let element_annotation =
+            target_annotation.and_then(|annotation| self.array_element_annotation(annotation));
         for item in &array.elements {
             diagnostics.extend(self.structural_diagnostics(
                 item.as_expression()?,
                 element,
-                None,
+                element_annotation,
                 None,
             )?);
         }
@@ -556,7 +597,7 @@ impl<'a> Checker<'a> {
         &mut self,
         expression: &Expression<'a>,
         target: TypeId,
-        target_label: Option<&str>,
+        target_annotation: Option<&TSType<'a>>,
         anchor: Option<oxc_span::Span>,
     ) -> Option<Diagnostic> {
         let actual = self.type_from_expression(expression, Some(target))?;
@@ -564,8 +605,8 @@ impl<'a> Checker<'a> {
             return None;
         }
         let actual = self.diagnostic_source_type(actual, target);
-        let actual = self.types.display(actual);
-        let expected = self.target_text(target, target_label);
+        let actual = self.types.diagnostic_display(actual);
+        let expected = self.target_text(target, target_annotation);
         Some(Diagnostic::new(
             "TS2322",
             format!("Type '{actual}' is not assignable to type '{expected}'."),
@@ -574,8 +615,128 @@ impl<'a> Checker<'a> {
         ))
     }
 
-    fn target_text(&self, target: TypeId, target_label: Option<&str>) -> String {
-        target_label.map_or_else(|| self.types.display(target).to_string(), str::to_owned)
+    fn target_text(&self, target: TypeId, target_annotation: Option<&TSType<'a>>) -> String {
+        target_annotation
+            .and_then(|annotation| self.annotation_target_text(annotation, target))
+            .unwrap_or_else(|| self.types.diagnostic_display(target).to_string())
+    }
+
+    fn annotation_target_text(&self, annotation: &TSType<'a>, target: TypeId) -> Option<String> {
+        match annotation {
+            TSType::TSTypeReference(reference) if reference.type_arguments.is_none() => {
+                Some(self.annotation_text(annotation).to_owned())
+            }
+            TSType::TSParenthesizedType(parenthesized) => {
+                self.annotation_target_text(&parenthesized.type_annotation, target)
+            }
+            TSType::TSTypeLiteral(literal) => {
+                let Some(TypeKind::Object(properties)) = self.types.kind(target) else {
+                    return None;
+                };
+                let mut rendered = "{ ".to_owned();
+                for member in &literal.members {
+                    let TSSignature::TSPropertySignature(annotation_property) = member else {
+                        return None;
+                    };
+                    let name = annotation_property.key.static_name()?.into_owned();
+                    let property = properties.iter().find(|property| property.name == name)?;
+                    let property_annotation = annotation_property.type_annotation.as_ref()?;
+                    let property_type = self
+                        .annotation_target_text(
+                            &property_annotation.type_annotation,
+                            property.type_id,
+                        )
+                        .unwrap_or_else(|| {
+                            self.types.diagnostic_display(property.type_id).to_string()
+                        });
+                    write!(
+                        rendered,
+                        "{}{}: {property_type}",
+                        property.name,
+                        if property.optional { "?" } else { "" }
+                    )
+                    .expect("writing to a string cannot fail");
+                    if property.optional && !self.types.includes_undefined(property.type_id) {
+                        rendered.push_str(" | undefined");
+                    }
+                    rendered.push_str("; ");
+                }
+                rendered.push('}');
+                Some(rendered)
+            }
+            _ => None,
+        }
+    }
+
+    fn object_property_annotation<'b>(
+        &self,
+        annotation: &'b TSType<'a>,
+        name: &str,
+    ) -> Option<&'b TSType<'a>>
+    where
+        'a: 'b,
+    {
+        let TSType::TSTypeLiteral(literal) = self.resolve_annotation(annotation)? else {
+            return None;
+        };
+        literal.members.iter().find_map(|member| {
+            let TSSignature::TSPropertySignature(property) = member else {
+                return None;
+            };
+            property
+                .key
+                .static_name()
+                .is_some_and(|property_name| property_name == name)
+                .then(|| property.type_annotation.as_ref())
+                .flatten()
+                .map(|annotation| &annotation.type_annotation)
+        })
+    }
+
+    fn array_element_annotation<'b>(&self, annotation: &'b TSType<'a>) -> Option<&'b TSType<'a>>
+    where
+        'a: 'b,
+    {
+        let TSType::TSArrayType(array) = self.resolve_annotation(annotation)? else {
+            return None;
+        };
+        Some(&array.element_type)
+    }
+
+    fn resolve_annotation<'b>(&self, annotation: &'b TSType<'a>) -> Option<&'b TSType<'a>>
+    where
+        'a: 'b,
+    {
+        let mut annotation = annotation;
+        let mut remaining_aliases = self.aliases.len();
+        loop {
+            match annotation {
+                TSType::TSTypeReference(reference) if reference.type_arguments.is_none() => {
+                    let TSTypeName::IdentifierReference(identifier) = &reference.type_name else {
+                        return Some(annotation);
+                    };
+                    let name = identifier.name.as_str();
+                    if remaining_aliases == 0 {
+                        return None;
+                    }
+                    remaining_aliases -= 1;
+                    annotation = self.aliases.get(name).copied()?;
+                }
+                TSType::TSParenthesizedType(parenthesized) => {
+                    annotation = &parenthesized.type_annotation;
+                }
+                _ => return Some(annotation),
+            }
+        }
+    }
+
+    fn assignment_target_text(&self, annotation: &TSType<'a>, target: TypeId) -> String {
+        match self.types.kind(target) {
+            Some(TypeKind::Union(_) | TypeKind::Object(_) | TypeKind::Array(_)) => {
+                self.annotation_text(annotation).to_owned()
+            }
+            _ => self.types.display(target).to_string(),
+        }
     }
 
     const fn range(span: oxc_span::Span) -> TextRange {

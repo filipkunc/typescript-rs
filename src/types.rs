@@ -239,7 +239,21 @@ impl TypeStore {
     /// Format a type identity, resolving compound members through this store.
     #[must_use]
     pub const fn display(&self, id: TypeId) -> TypeDisplay<'_> {
-        TypeDisplay { store: self, id }
+        TypeDisplay {
+            store: self,
+            id,
+            diagnostic: false,
+        }
+    }
+
+    /// Format a type using TypeScript's diagnostic punctuation conventions.
+    #[must_use]
+    pub(crate) const fn diagnostic_display(&self, id: TypeId) -> TypeDisplay<'_> {
+        TypeDisplay {
+            store: self,
+            id,
+            diagnostic: true,
+        }
     }
 
     /// Widen a fresh literal type to its primitive counterpart.
@@ -272,6 +286,7 @@ impl TypeStore {
 pub struct TypeDisplay<'a> {
     store: &'a TypeStore,
     id: TypeId,
+    diagnostic: bool,
 }
 
 impl fmt::Display for TypeDisplay<'_> {
@@ -281,11 +296,37 @@ impl fmt::Display for TypeDisplay<'_> {
         };
         match kind {
             TypeKind::Union(members) => {
+                if self.diagnostic
+                    && members.iter().all(|member| {
+                        matches!(self.store.kind(*member), Some(TypeKind::StringLiteral(_)))
+                    })
+                {
+                    let mut values: Vec<_> = members
+                        .iter()
+                        .filter_map(|member| match self.store.kind(*member) {
+                            Some(TypeKind::StringLiteral(value)) => Some(value.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    values.sort_unstable();
+                    for (index, value) in values.iter().enumerate() {
+                        if index > 0 {
+                            formatter.write_str(" | ")?;
+                        }
+                        write!(formatter, "\"{value}\"")?;
+                    }
+                    return Ok(());
+                }
                 for (index, member) in members.iter().enumerate() {
                     if index > 0 {
                         formatter.write_str(" | ")?;
                     }
-                    self.store.display(*member).fmt(formatter)?;
+                    TypeDisplay {
+                        store: self.store,
+                        id: *member,
+                        diagnostic: self.diagnostic,
+                    }
+                    .fmt(formatter)?;
                 }
                 Ok(())
             }
@@ -296,24 +337,48 @@ impl fmt::Display for TypeDisplay<'_> {
                 formatter.write_str("{ ")?;
                 for (index, property) in properties.iter().enumerate() {
                     if index > 0 {
-                        formatter.write_str("; ")?;
+                        formatter.write_str(if self.diagnostic { " " } else { "; " })?;
                     }
                     formatter.write_str(&property.name)?;
                     if property.optional {
                         formatter.write_str("?")?;
                     }
                     formatter.write_str(": ")?;
-                    self.store.display(property.type_id).fmt(formatter)?;
+                    TypeDisplay {
+                        store: self.store,
+                        id: property.type_id,
+                        diagnostic: self.diagnostic,
+                    }
+                    .fmt(formatter)?;
+                    if self.diagnostic
+                        && property.optional
+                        && !self.store.includes_undefined(property.type_id)
+                    {
+                        formatter.write_str(" | undefined")?;
+                    }
+                    if self.diagnostic {
+                        formatter.write_str(";")?;
+                    }
                 }
                 formatter.write_str(" }")
             }
             TypeKind::Array(element) => {
                 if matches!(self.store.kind(*element), Some(TypeKind::Union(_))) {
                     formatter.write_str("(")?;
-                    self.store.display(*element).fmt(formatter)?;
+                    TypeDisplay {
+                        store: self.store,
+                        id: *element,
+                        diagnostic: self.diagnostic,
+                    }
+                    .fmt(formatter)?;
                     formatter.write_str(")[]")
                 } else {
-                    self.store.display(*element).fmt(formatter)?;
+                    TypeDisplay {
+                        store: self.store,
+                        id: *element,
+                        diagnostic: self.diagnostic,
+                    }
+                    .fmt(formatter)?;
                     formatter.write_str("[]")
                 }
             }
@@ -325,6 +390,17 @@ impl fmt::Display for TypeDisplay<'_> {
 impl Default for TypeStore {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl TypeStore {
+    pub(crate) fn includes_undefined(&self, id: TypeId) -> bool {
+        let undefined = self.primitives().undefined;
+        id == undefined
+            || matches!(
+                self.kind(id),
+                Some(TypeKind::Union(members)) if members.contains(&undefined)
+            )
     }
 }
 
@@ -461,5 +537,41 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(types.display(first).to_string(), "number[]");
         assert_eq!(types.display(nested).to_string(), "number[][]");
+    }
+
+    #[test]
+    fn diagnostic_display_uses_typescript_object_punctuation() {
+        let mut types = TypeStore::new();
+        let primitives = types.primitives();
+        let object = types.object([
+            ObjectTypeProperty {
+                name: "id".to_owned(),
+                type_id: primitives.number,
+                optional: false,
+            },
+            ObjectTypeProperty {
+                name: "name".to_owned(),
+                type_id: primitives.string,
+                optional: true,
+            },
+        ]);
+
+        assert_eq!(
+            types.diagnostic_display(object).to_string(),
+            "{ id: number; name?: string | undefined; }"
+        );
+    }
+
+    #[test]
+    fn diagnostic_display_sorts_string_literal_unions() {
+        let mut types = TypeStore::new();
+        let success = types.intern(TypeKind::StringLiteral("success".to_owned()));
+        let failure = types.intern(TypeKind::StringLiteral("failure".to_owned()));
+        let result = types.union([success, failure]);
+
+        assert_eq!(
+            types.diagnostic_display(result).to_string(),
+            "\"failure\" | \"success\""
+        );
     }
 }
