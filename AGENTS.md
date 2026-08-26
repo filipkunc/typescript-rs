@@ -61,6 +61,10 @@ expanding into those features.
   means the fixture must pass.
 - Keep a fixture's `@reference` comment so its source remains traceable.
 - Use `BLESS=1` only after reviewing every diagnostic change; never use it to hide a failure.
+- When a pinned TypeScript-Go checkout is available, run `cargo test-tsgo --repo <checkout>`
+  before claiming reference parity. `BLESS=1` cannot resolve a differential mismatch.
+- Treat changes to `tests/tsgo-reference.txt` as explicit reference-version updates and review
+  all resulting diagnostic differences.
 - Prefer several narrow cases over one large fixture when they exercise different type-system
   rules.
 

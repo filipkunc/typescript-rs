@@ -14,6 +14,14 @@
       "command": "cargo",
       "args": ["test", "--test", "conformance", "${input:caseName}", "--", "--nocapture"],
       "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "test: compare TypeScript-Go",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["test-tsgo", "--repo", "${input:tsgoRepo}"],
+      "group": "test",
+      "problemMatcher": []
     }
   ],
   "inputs": [
@@ -22,6 +30,12 @@
       "type": "promptString",
       "description": "Conformance test name",
       "default": "primitive_literals"
+    },
+    {
+      "id": "tsgoRepo",
+      "type": "promptString",
+      "description": "Pinned TypeScript-Go checkout",
+      "default": "${workspaceFolder}/../typescript-go"
     }
   ]
 }

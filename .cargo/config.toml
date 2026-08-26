@@ -1,0 +1,2 @@
+[alias]
+test-tsgo = "run --quiet --bin compare-tsgo --"

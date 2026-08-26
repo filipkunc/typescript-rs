@@ -1,0 +1,2 @@
+# microsoft/typescript-go commit used as the differential checker reference.
+89d5d5b2849a0db0957065889ca58536fa6d2e4a

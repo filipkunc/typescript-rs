@@ -52,3 +52,10 @@ registered. Source directives remain comments that can later be interpreted by a
 options parser. Baselines are sidecars rather than inline assertions, making upstream
 source updates easy to diff. Cargo's test-name filter keeps an individual case convenient
 to run under a debugger; `BLESS=1` updates only selected baselines.
+
+`cargo test-tsgo` provides a separate differential layer over those same `.ts` sources. It
+requires the exact TypeScript-Go revision recorded in `tests/tsgo-reference.txt`, checks the
+fixtures under one fixed compiler-options profile, and compares normalized diagnostic codes,
+UTF-16 locations, and messages. The `.errors` files remain tsrs regression snapshots; the
+differential runner neither consumes nor rewrites them. Keeping these two checks independent
+makes a local baseline update unable to conceal drift from the reference implementation.

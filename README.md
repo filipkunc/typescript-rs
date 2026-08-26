@@ -73,6 +73,28 @@ Fixtures may retain TypeScript test directives as comments. Add an `@reference` 
 with the upstream path or a bootstrap identifier so a case remains traceable during
 synchronization.
 
+The same fixture sources can also be checked against a pinned TypeScript-Go build. This is a
+differential check: it compares diagnostic codes, UTF-16 line/column locations, and normalized
+messages without reading or updating the `.errors` sidecars.
+
+```console
+# One-time setup in a TypeScript-Go checkout at tests/tsgo-reference.txt
+npm ci
+npx hereby local
+
+# Compare all fixtures, or one named fixture
+cargo test-tsgo --repo ../typescript-go
+cargo test-tsgo --repo ../typescript-go --case primitive_literals
+
+# The checkout can also be supplied through the environment
+TSGO_REPO=../typescript-go cargo test-tsgo
+```
+
+The runner requires the checkout's exact pinned revision and invokes TypeScript-Go with a fixed
+strict, ESNext target/module/library, no-emit profile. A mismatch is evidence to review the fixture
+or checker; blessing the local `.errors` baseline does not resolve it. Update
+`tests/tsgo-reference.txt` only as an explicit, reviewed reference-version change.
+
 See [Goals.md](Goals.md), [architecture](docs/architecture.md), and
 [bootstrap research](docs/bootstrap-research.md) for scope and design rationale.
 
