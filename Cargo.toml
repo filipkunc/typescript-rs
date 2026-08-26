@@ -1,0 +1,37 @@
+[package]
+name = "typescript-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+description = "An experimental TypeScript type checker written in Rust"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+oxc_allocator = "0.147.0"
+oxc_ast = "0.147.0"
+oxc_ast_visit = "0.147.0"
+oxc_diagnostics = "0.147.0"
+oxc_parser = "0.147.0"
+oxc_semantic = "0.147.0"
+oxc_span = "0.147.0"
+
+[[bin]]
+name = "tsrs"
+path = "src/main.rs"
+
+[dev-dependencies]
+criterion = "0.7"
+
+[[bench]]
+name = "check_file"
+harness = false
+
+[profile.release]
+lto = "thin"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

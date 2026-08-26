@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "test: all",
+      "type": "shell",
+      "command": "cargo test --all-targets",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "test: conformance case",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["test", "--test", "conformance", "${input:caseName}", "--", "--nocapture"],
+      "problemMatcher": ["$rustc"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "caseName",
+      "type": "promptString",
+      "description": "Conformance test name",
+      "default": "primitive_literals"
+    }
+  ]
+}

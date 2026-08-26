@@ -1,0 +1,2 @@
+TS2322@2:24 [check] Type 'number' is not assignable to type 'string'.
+TS2322@4:24 [check] Type 'string' is not assignable to type 'boolean'.

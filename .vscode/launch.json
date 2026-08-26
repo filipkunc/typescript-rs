@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug tsrs (F5)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--bin", "tsrs"],
+        "filter": {
+          "name": "tsrs",
+          "kind": "bin"
+        },
+        "problemMatcher": "$rustc"
+      },
+      "args": ["${workspaceFolder}/example.ts"],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Debug conformance case",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--no-run", "--test", "conformance"],
+        "filter": {
+          "name": "conformance",
+          "kind": "test"
+        },
+        "problemMatcher": "$rustc"
+      },
+      "args": ["${input:caseName}", "--nocapture"],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "terminal": "integrated"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "caseName",
+      "type": "promptString",
+      "description": "Conformance test name",
+      "default": "primitive_literals"
+    }
+  ]
+}
