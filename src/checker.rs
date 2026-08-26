@@ -149,7 +149,14 @@ impl<'a> Checker<'a> {
                     .collect();
                 Some(self.types.object(properties?))
             }
-            TSType::TSTypeReference(reference) if reference.type_arguments.is_none() => {
+            TSType::TSTypeReference(reference) => {
+                if let Some(element) = Self::generic_array_element(annotation) {
+                    let element = self.type_from_annotation(element)?;
+                    return Some(self.types.array(element));
+                }
+                if reference.type_arguments.is_some() {
+                    return None;
+                }
                 let TSTypeName::IdentifierReference(name) = &reference.type_name else {
                     return None;
                 };
@@ -697,10 +704,28 @@ impl<'a> Checker<'a> {
     where
         'a: 'b,
     {
-        let TSType::TSArrayType(array) = self.resolve_annotation(annotation)? else {
+        let annotation = self.resolve_annotation(annotation)?;
+        match annotation {
+            TSType::TSArrayType(array) => Some(&array.element_type),
+            _ => Self::generic_array_element(annotation),
+        }
+    }
+
+    fn generic_array_element<'b>(annotation: &'b TSType<'a>) -> Option<&'b TSType<'a>> {
+        let TSType::TSTypeReference(reference) = annotation else {
             return None;
         };
-        Some(&array.element_type)
+        let TSTypeName::IdentifierReference(identifier) = &reference.type_name else {
+            return None;
+        };
+        if identifier.name != "Array" {
+            return None;
+        }
+        let arguments = reference.type_arguments.as_ref()?;
+        let [element] = arguments.params.as_slice() else {
+            return None;
+        };
+        Some(element)
     }
 
     fn resolve_annotation<'b>(&self, annotation: &'b TSType<'a>) -> Option<&'b TSType<'a>>

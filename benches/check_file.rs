@@ -39,6 +39,17 @@ export const groups: Groups = [
 export const invalid: Groups = [[{ id: 3, name: "Lin", tags: [false] }]];
 "#;
 
+const GENERIC_ARRAY_SHAPE_SOURCE: &str = r#"
+type User = { id: number; name: string; tags: Array<string> };
+type Groups = Array<Array<User>>;
+
+export const groups: Groups = [
+    [{ id: 1, name: "Ada", tags: ["compiler", "math"] }],
+    [{ id: 2, name: "Grace", tags: ["cobol"] }],
+];
+export const invalid: Groups = [[{ id: 3, name: "Lin", tags: [false] }]];
+"#;
+
 const STRUCTURAL_DIAGNOSTIC_SOURCE: &str = r#"
 type Server = { host: string; ports: number[] };
 type Config = { servers: Server[][] };
@@ -64,6 +75,9 @@ fn check_file(criterion: &mut Criterion) {
     });
     criterion.bench_function("parse_bind_check/array_shapes", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", ARRAY_SHAPE_SOURCE));
+    });
+    criterion.bench_function("parse_bind_check/generic_array_shapes", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", GENERIC_ARRAY_SHAPE_SOURCE));
     });
     criterion.bench_function("parse_bind_check/structural_diagnostics", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", STRUCTURAL_DIAGNOSTIC_SOURCE));

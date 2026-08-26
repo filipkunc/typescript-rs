@@ -17,13 +17,13 @@ TypeScript source -> Oxc parser -> Oxc binder -> tsrs checker -> owned diagnosti
 ```
 
 The checker currently recognizes primitive and literal types, canonicalized unions, object
-type and object expression literals with required or optional named properties, `T[]` types and
-contextually typed array expressions, and non-generic top-level type aliases on explicitly typed
-variable declarations. Object and array assignability are structural, including objects and
-arrays nested in any combination and inside union targets. Fresh object literals reject excess
-properties, structural diagnostics point to nested properties and array elements, and negative
-numeric literals are supported. `Array<T>` remains follow-up work beyond the completed
-JSON-shaped values milestone.
+type and object expression literals with required or optional named properties, `T[]` and
+built-in `Array<T>` types with contextually typed array expressions, and non-generic top-level
+type aliases on explicitly typed variable declarations. Object and array assignability are
+structural, including objects and arrays nested in any combination and inside union targets.
+Fresh object literals reject excess properties, structural diagnostics point to nested properties
+and array elements, and negative numeric literals are supported. Built-in `Array<T>` is a syntax
+rule within that existing subset and does not introduce general generics.
 
 ## Try it
 

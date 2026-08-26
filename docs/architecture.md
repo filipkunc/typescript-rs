@@ -26,14 +26,26 @@ checker:
 1. interned primitive and literal type identities with canonical unions (initial support is in place);
 2. annotation resolution (initial top-level, non-generic aliases are in place);
 3. assignability with recursion guards and relation caches (initial support is in place);
-4. object types and arrays (initial named-property and `T[]` support is in place), followed by
-   tuples and index-signature types;
+4. object types and arrays (initial named-property, `T[]`, and built-in `Array<T>` support is in
+   place), followed by tuples and index-signature types;
 5. expression inference and contextual typing (initial object, array, and union-target support is
    in place), followed by control-flow narrowing;
 6. generics, signatures, intersections, and conditional types.
 
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.
+
+## Current milestone: standard array type syntax
+
+This checker milestone treats the built-in `Array<T>` type reference as an alternate spelling
+of the existing `T[]` type throughout the completed JSON-shaped subset. It includes primitive,
+literal-union, object, nested-array, and alias element types, with the same contextual checking and
+diagnostic behavior as bracket array syntax.
+
+This milestone is intentionally a built-in syntax rule, not general generic type instantiation. It
+does not add user-defined generics, `ReadonlyArray<T>`, tuples, index signatures, array methods, or
+standard-library symbol resolution. Completion requires focused registered fixtures and exact
+diagnostic parity with the pinned TypeScript-Go revision.
 
 ## Diagnostics and editor use
 

@@ -4,6 +4,8 @@ use typescript_rs::check_source;
 
 const REGISTERED_CASES: &[&str] = &[
     "array_empty.ts",
+    "array_generic.ts",
+    "array_generic_errors.ts",
     "array_incorrect_element_types.ts",
     "array_nested.ts",
     "array_object_element_properties.ts",
@@ -95,6 +97,16 @@ fn array_object_element_properties() {
 #[test]
 fn array_empty() {
     run_case("array_empty.ts");
+}
+
+#[test]
+fn array_generic() {
+    run_case("array_generic.ts");
+}
+
+#[test]
+fn array_generic_errors() {
+    run_case("array_generic_errors.ts");
 }
 
 #[test]
