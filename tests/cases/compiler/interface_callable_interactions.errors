@@ -1,0 +1,2 @@
+TS2322@17:5 [check] Type 'number' is not assignable to type 'User'.
+TS2345@22:34 [check] Argument of type 'string' is not assignable to parameter of type 'boolean'.

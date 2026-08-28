@@ -19,19 +19,26 @@ TypeScript source -> Oxc parser -> Oxc binder -> tsrs checker -> owned diagnosti
 The checker currently recognizes primitive and literal types, canonicalized unions, object
 type and object expression literals with required or optional named properties, `T[]` and
 built-in `Array<T>` types with contextually typed array expressions, and non-generic top-level
-type aliases on explicitly typed variable declarations. Object and array assignability are
-structural, including objects and arrays nested in any combination and inside union targets.
+type aliases and property-only interfaces on explicitly typed variable declarations. Object and
+array assignability are structural, including objects and arrays nested in any combination and
+inside union targets.
 Fresh object literals reject excess properties, structural diagnostics point to nested properties
 and array elements, and negative numeric literals are supported. Built-in `Array<T>` is a syntax
 rule within that existing subset and does not introduce general generics.
 
-The current **annotated callable foundations** milestone also supports named function declarations
+The completed **annotated callable foundations** milestone also supports named function declarations
 with explicitly typed simple parameters and return types, parameter and function resolution through
 Oxc semantic symbols/references, return-statement checking, and direct calls to named functions.
 Calls report TypeScript-compatible argument and exact-arity diagnostics. Return inference, function
 and arrow expressions, closures, overloads, optional/default/rest/destructured parameters, generics,
-methods, interfaces, classes, `this`/`super`, and control-flow narrowing remain outside this
-milestone.
+methods, classes, `this`/`super`, and control-flow narrowing remain outside that milestone.
+
+The current **property-only interfaces** milestone supports unique top-level named interfaces,
+including exported declarations, with required or optional statically named properties. Interface
+references compose with the existing aliases, object and array shapes, unions, and annotated
+function parameters and returns. Interfaces remain structural and reuse canonical object types.
+Inheritance, declaration merging, recursion, generics, callable or method signatures, index
+signatures, and member access remain outside this milestone.
 
 ## Try it
 

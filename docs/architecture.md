@@ -27,7 +27,8 @@ Grow the checker around explicit operations instead of mirroring the monolithic 
 checker:
 
 1. interned primitive and literal type identities with canonical unions (initial support is in place);
-2. annotation resolution (initial top-level, non-generic aliases are in place);
+2. annotation resolution (initial top-level, non-generic aliases and property-only interfaces are
+   in place);
 3. assignability with recursion guards and relation caches (initial support is in place);
 4. object types and arrays (initial named-property, `T[]`, and built-in `Array<T>` support is in
    place), followed by tuples and index-signature types;
@@ -39,25 +40,25 @@ checker:
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.
 
-## Current milestone: annotated callable foundations
+## Current milestone: property-only interfaces
 
-This checker milestone adds a deliberately narrow callable layer on top of the completed
-JSON-shaped value subset. It includes function declarations whose parameters and return type are
-all explicit, identifier expression typing for simple parameters, named-function resolution through
-Oxc symbols and references, return-statement assignability, and direct calls to named functions.
-Argument type and exact arity diagnostics follow the pinned TypeScript-Go codes, UTF-16 anchors, and
-normalized messages.
+This checker milestone adds named interfaces as an alternate declaration form for the existing
+structural object model. It includes unique top-level interfaces, including named and default
+exports, whose bodies contain required or optional statically named property signatures with
+explicit annotations. Interface references work wherever the current checker resolves annotations,
+including variable declarations and explicitly annotated function parameters and return types.
 
-Callable signatures live in a separate per-check store and refer to canonical `TypeId`s for their
-parameter and return types. This keeps callable identity decisions out of `TypeKind`, leaves the
-fixed primitive identities and allocation-free primitive interning path unchanged, and lets the
-existing relation cache continue to own structural assignability.
+Interface bodies lower to canonical `TypeKind::Object` identities, so aliases, interfaces, and
+object type literals with the same property shape share assignability and contextual typing. The
+checker retains borrowed declaration metadata only for the current check so nested missing, excess,
+and wrongly typed property diagnostics can preserve interface names and locate the relevant syntax.
+This also lets the completed annotated-callable foundation pass and return whole interface values
+without adding callable identity to `TypeKind`.
 
-The milestone excludes inferred return types; arrow and function expressions; closures and captured
-variables; overloads; optional, default, rest, and destructured parameters; generics; methods,
-interfaces, and classes; `this` and `super`; and control-flow narrowing. The intended next sequence
-is property-only interfaces, callable interface members with member access, then classes with
-separate instance and constructor/static sides.
+The milestone excludes interface inheritance and declaration merging; recursive and generic
+interfaces; method, call, construct, and index signatures; property/member access expressions; and
+classes. The intended next sequence is callable interface members with member access, then classes
+with separate instance and constructor/static sides.
 
 ## Diagnostics and editor use
 
