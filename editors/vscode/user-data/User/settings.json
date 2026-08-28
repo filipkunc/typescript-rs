@@ -1,0 +1,7 @@
+{
+  "chat.disableAIFeatures": true,
+  "workbench.startupEditor": "none",
+  "workbench.welcomePage.walkthroughs.openOnInstall": false,
+  "js/ts.experimental.useTsgo": false,
+  "typescript.experimental.useTsgo": false
+}

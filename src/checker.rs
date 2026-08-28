@@ -4,17 +4,17 @@ use std::{
 };
 
 use oxc_ast::ast::{
-    ArrayExpression, ArrowFunctionExpression, BindingPattern, CallExpression, Declaration,
-    ExportDefaultDeclarationKind, Expression, Function, FunctionType, IdentifierReference,
-    ObjectExpression, ObjectPropertyKind, Program, ReturnStatement, Statement,
-    TSInterfaceDeclaration, TSLiteral, TSSignature, TSType, TSTypeName, UnaryOperator,
-    VariableDeclarator,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentTarget,
+    BindingPattern, CallExpression, Declaration, ExportDefaultDeclarationKind, Expression,
+    Function, FunctionType, IdentifierReference, ObjectExpression, ObjectPropertyKind, Program,
+    ReturnStatement, Statement, TSInterfaceDeclaration, TSLiteral, TSSignature, TSType, TSTypeName,
+    UnaryOperator, VariableDeclarator,
 };
 use oxc_ast_visit::{
     Visit,
     walk::{
-        walk_arrow_function_expression, walk_call_expression, walk_function, walk_return_statement,
-        walk_variable_declarator,
+        walk_arrow_function_expression, walk_assignment_expression, walk_call_expression,
+        walk_function, walk_return_statement, walk_variable_declarator,
     },
 };
 use oxc_semantic::{ScopeFlags, Scoping, SymbolId};
@@ -138,6 +138,11 @@ impl<'a> Visit<'a> for Checker<'a> {
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
         self.check_call_expression(call);
         walk_call_expression(self, call);
+    }
+
+    fn visit_assignment_expression(&mut self, assignment: &AssignmentExpression<'a>) {
+        self.check_assignment_expression(assignment);
+        walk_assignment_expression(self, assignment);
     }
 
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
@@ -355,14 +360,45 @@ impl<'a> Checker<'a> {
     }
 
     fn check_variable_declarator(&mut self, declaration: &VariableDeclarator<'a>) {
-        let (Some(annotation), Some(initializer)) =
-            (&declaration.type_annotation, &declaration.init)
+        let declared_type = declaration
+            .type_annotation
+            .as_ref()
+            .and_then(|annotation| self.type_from_annotation(&annotation.type_annotation));
+
+        if let (Some(annotation), Some(initializer), Some(expected)) = (
+            &declaration.type_annotation,
+            &declaration.init,
+            declared_type,
+        ) {
+            self.check_variable_initializer(declaration, annotation, initializer, expected);
+        }
+
+        let variable_type = if declaration.type_annotation.is_some() {
+            declared_type
+        } else {
+            declaration
+                .init
+                .as_ref()
+                .and_then(|initializer| self.type_from_expression(initializer, None))
+        };
+        let (BindingPattern::BindingIdentifier(identifier), Some(variable_type)) =
+            (&declaration.id, variable_type)
         else {
             return;
         };
-        let Some(expected) = self.type_from_annotation(&annotation.type_annotation) else {
+        let Some(symbol) = identifier.symbol_id.get() else {
             return;
         };
+        self.symbol_types.insert(symbol, variable_type);
+    }
+
+    fn check_variable_initializer(
+        &mut self,
+        declaration: &VariableDeclarator<'a>,
+        annotation: &oxc_ast::ast::TSTypeAnnotation<'a>,
+        initializer: &Expression<'a>,
+        expected: TypeId,
+    ) {
         if self.needs_structural_diagnostics(initializer, expected)
             && let Some(diagnostics) = self.structural_diagnostics(
                 initializer,
@@ -392,6 +428,35 @@ impl<'a> Checker<'a> {
             Phase::Check,
             Some(TextRange::new(span.start, span.end)),
         ));
+    }
+
+    fn check_assignment_expression(&mut self, assignment: &AssignmentExpression<'a>) {
+        if !assignment.operator.is_assign() {
+            return;
+        }
+        let AssignmentTarget::AssignmentTargetIdentifier(identifier) = &assignment.left else {
+            return;
+        };
+        let Some(target) = self
+            .symbol_for_identifier(identifier)
+            .and_then(|symbol| self.symbol_types.get(&symbol).copied())
+        else {
+            return;
+        };
+
+        if self.needs_structural_diagnostics(&assignment.right, target)
+            && let Some(diagnostics) =
+                self.structural_diagnostics(&assignment.right, target, None, Some(identifier.span))
+        {
+            self.diagnostics.extend(diagnostics);
+            return;
+        }
+
+        if let Some(diagnostic) =
+            self.type_mismatch_diagnostic(&assignment.right, target, None, Some(identifier.span))
+        {
+            self.diagnostics.push(diagnostic);
+        }
     }
 
     fn type_from_annotation(&mut self, annotation: &TSType<'a>) -> Option<TypeId> {

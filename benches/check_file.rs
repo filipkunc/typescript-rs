@@ -105,6 +105,16 @@ export const selected: User = identity({
 });
 "#;
 
+const SIMPLE_ASSIGNMENT_SOURCE: &str = r#"
+let inferred = "tsrs";
+inferred = "rust";
+inferred = 1;
+
+let annotated: number;
+annotated = 1;
+annotated = "invalid";
+"#;
+
 fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/small_file", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SOURCE));
@@ -129,6 +139,9 @@ fn check_file(criterion: &mut Criterion) {
     });
     criterion.bench_function("parse_bind_check/property_interfaces", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", PROPERTY_INTERFACE_SOURCE));
+    });
+    criterion.bench_function("parse_bind_check/simple_assignments", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", SIMPLE_ASSIGNMENT_SOURCE));
     });
 }
 

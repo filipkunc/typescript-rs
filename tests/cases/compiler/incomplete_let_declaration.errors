@@ -1,0 +1,2 @@
+TS1212@2:1 [parse] Identifier expected. 'let' is a reserved word in strict mode.
+TS2304@2:1 [check] Cannot find name 'let'.

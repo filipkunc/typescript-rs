@@ -18,6 +18,8 @@ const REGISTERED_CASES: &[&str] = &[
     "callable_symbol_resolution.ts",
     "contextual_union_shapes.ts",
     "diagnostic_assignment_anchors.ts",
+    "incomplete_expression.ts",
+    "incomplete_let_declaration.ts",
     "interface_callable_interactions.ts",
     "interface_properties_valid.ts",
     "interface_structural_errors.ts",
@@ -32,6 +34,8 @@ const REGISTERED_CASES: &[&str] = &[
     "object_type_optional_properties.ts",
     "object_type_property_types.ts",
     "primitive_literals.ts",
+    "simple_assignment_errors.ts",
+    "unexpected_statement_token.ts",
     "valid_primitive_literals.ts",
 ];
 
@@ -168,6 +172,16 @@ fn interface_structural_errors() {
 }
 
 #[test]
+fn incomplete_expression() {
+    run_case("incomplete_expression.ts");
+}
+
+#[test]
+fn incomplete_let_declaration() {
+    run_case("incomplete_let_declaration.ts");
+}
+
+#[test]
 fn json_shaped_values_complete() {
     run_case("json_shaped_values_complete.ts");
 }
@@ -185,6 +199,16 @@ fn nested_structural_diagnostics() {
 #[test]
 fn object_type_excess_properties() {
     run_case("object_type_excess_properties.ts");
+}
+
+#[test]
+fn simple_assignment_errors() {
+    run_case("simple_assignment_errors.ts");
+}
+
+#[test]
+fn unexpected_statement_token() {
+    run_case("unexpected_statement_token.ts");
 }
 
 #[test]

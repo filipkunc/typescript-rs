@@ -40,7 +40,7 @@ checker:
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.
 
-## Current milestone: property-only interfaces
+## Completed checker milestone: property-only interfaces
 
 This checker milestone adds named interfaces as an alternate declaration form for the existing
 structural object model. It includes unique top-level interfaces, including named and default
@@ -60,12 +60,53 @@ interfaces; method, call, construct, and index signatures; property/member acces
 classes. The intended next sequence is callable interface members with member access, then classes
 with separate instance and constructor/static sides.
 
+## Completed checker slice: basic expressions
+
+Simple identifier bindings now populate the existing symbol-to-type table from an explicit
+annotation or a supported initializer expression. Plain `=` expressions resolve their left-hand
+identifier through Oxc's reference graph and apply the existing assignability and structural
+diagnostic operations to the right-hand side. This is declaration-type checking, not flow-sensitive
+state: a successful assignment does not replace or narrow the variable's type.
+
+This slice intentionally excludes compound and destructuring assignments, use-before-declaration,
+definite-assignment analysis, reassignment of properties or indexed values, and control-flow
+narrowing. Fatal parser diagnostics still originate in Oxc. The owned-diagnostic boundary only
+normalizes two unambiguous, common incomplete-input shapes to TypeScript-compatible `TS1109` and
+`TS1128` codes and messages for the editor loop.
+
+## Current tooling milestone: live single-document diagnostics
+
+The `--lsp` frontend provides the first editor-facing loop without introducing a premature
+project model. A Tokio stdio server built on `tower-lsp-server` owns full text snapshots and version
+numbers only for documents opened by the client. On open and change it invokes the existing
+`check_source` boundary and publishes owned diagnostics; on close it removes the snapshot and
+clears diagnostics. Requests are handled sequentially for now so an older check cannot publish
+after a newer document version.
+
+The LSP adapter is binary-only frontend code. It translates UTF-8 byte ranges to UTF-16 line and
+character positions and does not move Oxc arenas, AST nodes, scopes, or references across checks.
+The development VS Code extension is a thin standard LSP client for exercising this same stdio
+server. Other clients do not depend on it.
+
+This tooling milestone does not yet define `Program`: it neither scans a workspace nor reads
+`tsconfig.json`, watches unopened files, resolves modules, or caches semantic state. Project-wide
+diagnostics and language features must wait for stable file identities, configuration ownership,
+module resolution, and dependency tracking.
+
+## Next checker milestone: callable interface members and member access
+
+The next checker expansion should add explicitly typed interface methods and property/member access
+on the existing object model. This creates a focused semantic path shared by interface values and
+the later class instance side. Classes remain the following milestone and should model instance and
+constructor/static sides explicitly rather than being introduced as syntax accepted only for the
+editor demo.
+
 ## Diagnostics and editor use
 
 Diagnostics store UTF-8 byte ranges because that is Oxc's native coordinate system. Structural
 checks walk fresh object and array expressions contextually so missing or excess properties and
-wrongly typed nested values can point at their relevant syntax. A future LSP adapter must
-translate these ranges to UTF-16 positions at the boundary. Stable codes, owned messages, and
+wrongly typed nested values can point at their relevant syntax. The LSP adapter translates these
+ranges to UTF-16 positions at the boundary. Stable codes, owned messages, and
 deterministic concise rendering support both editor clients and test baselines without coupling
 checker internals to either frontend.
 
