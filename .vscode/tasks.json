@@ -22,6 +22,32 @@
       "args": ["test-tsgo", "--repo", "${input:tsgoRepo}"],
       "group": "test",
       "problemMatcher": []
+    },
+    {
+      "label": "build: tsrs LSP",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["build", "--bin", "tsrs"],
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "install: VS Code LSP client",
+      "type": "shell",
+      "command": "npm",
+      "args": ["ci"],
+      "options": {
+        "cwd": "${workspaceFolder}/editors/vscode"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "prepare: tsrs LSP in VS Code",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "build: tsrs LSP",
+        "install: VS Code LSP client"
+      ],
+      "problemMatcher": []
     }
   ],
   "inputs": [

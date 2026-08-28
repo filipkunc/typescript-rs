@@ -33,23 +33,62 @@ Calls report TypeScript-compatible argument and exact-arity diagnostics. Return 
 and arrow expressions, closures, overloads, optional/default/rest/destructured parameters, generics,
 methods, classes, `this`/`super`, and control-flow narrowing remain outside that milestone.
 
-The current **property-only interfaces** milestone supports unique top-level named interfaces,
+The completed **property-only interfaces** milestone supports unique top-level named interfaces,
 including exported declarations, with required or optional statically named properties. Interface
 references compose with the existing aliases, object and array shapes, unions, and annotated
 function parameters and returns. Interfaces remain structural and reuse canonical object types.
 Inheritance, declaration merging, recursion, generics, callable or method signatures, index
 signatures, and member access remain outside this milestone.
 
+The completed **basic expressions** slice records primitive and currently supported structural
+types for simple identifier bindings, whether inferred from an initializer or supplied by an
+annotation. A later plain `=` assignment is checked against that stable variable type. Compound
+assignments, destructuring assignments, assignment-based narrowing, and use-before-declaration
+remain outside this slice. For common incomplete-expression input, the diagnostic adapter also
+turns Oxc's generic fatal parse error into the corresponding TypeScript `TS1109` or `TS1128`
+diagnostic so partially typed editor input is easier to compare.
+
 ## Try it
 
 ```console
-cargo run -- example.ts
+cargo run --bin tsrs -- example.ts
 cargo test
 cargo bench
 ```
 
 The CLI accepts `.ts`, `.tsx`, `.mts`, `.cts`, and JavaScript extensions understood by
 Oxc. It exits with status 1 when diagnostics are emitted.
+
+## Language server
+
+`tsrs --lsp` starts a Language Server Protocol server over stdio. The initial LSP milestone
+keeps full snapshots of open documents and publishes parser, binder, and checker diagnostics on
+open and after every change. Diagnostics are cleared when a document becomes valid or is closed.
+The adapter converts the checker's UTF-8 byte ranges to the protocol's UTF-16 positions.
+
+This is intentionally a live single-document view of the checker. It does not yet load
+`tsconfig.json`, discover unopened files, resolve imports, or provide hover, completion, navigation,
+or other project-aware features. The optional `--stdio` argument is accepted for clients that make
+the transport explicit.
+
+To exercise the server in VS Code:
+
+1. Select **Run tsrs LSP in VS Code** in the Run and Debug view.
+2. Start debugging. The pre-launch tasks build `target/debug/tsrs` and install the small development
+   client under `editors/vscode` from its lockfile.
+3. Open a TypeScript file in the Extension Development Host and edit it. Problems produced by this
+   server have `tsrs` as their source.
+
+This launch uses an isolated user-data directory and disables installed extensions except the
+`tsrs` extension under development. VS Code's built-in TypeScript service remains active as a
+reference, so its `ts(...)` diagnostics can be compared directly with `tsrs(...)` while typing.
+The isolated profile keeps the experimental TypeScript-Go extension off and suppresses first-run
+welcome, release-note, and AI sign-in prompts. It does not change normal VS Code windows or the
+project being inspected. The repository client is development scaffolding, not a packaged
+Marketplace extension.
+
+Other editors can launch the built binary directly with `target/debug/tsrs --lsp` and stdio
+transport. Register it for TypeScript/TSX and, if desired, JavaScript/JSX documents.
 
 ## Debugging in VS Code
 
@@ -60,7 +99,8 @@ Cargo and checks the repository's `example.ts` under the debugger.
 For a useful first breakpoint, open `src/checker.rs` and place it on the diagnostic
 branch inside `Checker::check_variable_declarator`. The example contains a deliberate
 type error that reaches this branch. For callable fixtures, use `Checker::check_return_statement`
-or `Checker::check_call_expression` instead.
+or `Checker::check_call_expression` instead. For live editor diagnostics, use `Backend::publish`
+in `src/lsp.rs`.
 
 The Run and Debug selector also contains **Debug conformance case**. It prompts for a
 named fixture test and launches the Rust test executable under CodeLLDB.

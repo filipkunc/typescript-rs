@@ -1,0 +1,37 @@
+{
+  "name": "tsrs-vscode",
+  "publisher": "tsrs",
+  "displayName": "tsrs (development)",
+  "description": "Development client for the tsrs language server",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "tsrs",
+      "properties": {
+        "tsrs.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Absolute path to the tsrs executable. Empty uses target/debug/tsrs in this repository."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.0"
+  }
+}
