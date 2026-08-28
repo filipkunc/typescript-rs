@@ -6,8 +6,9 @@ use std::{
 use oxc_ast::ast::{
     ArrayExpression, ArrowFunctionExpression, BindingPattern, CallExpression, Declaration,
     ExportDefaultDeclarationKind, Expression, Function, FunctionType, IdentifierReference,
-    ObjectExpression, ObjectPropertyKind, Program, ReturnStatement, Statement, TSLiteral,
-    TSSignature, TSType, TSTypeName, UnaryOperator, VariableDeclarator,
+    ObjectExpression, ObjectPropertyKind, Program, ReturnStatement, Statement,
+    TSInterfaceDeclaration, TSLiteral, TSSignature, TSType, TSTypeName, UnaryOperator,
+    VariableDeclarator,
 };
 use oxc_ast_visit::{
     Visit,
@@ -28,6 +29,7 @@ use crate::{
 
 pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<Diagnostic> {
     let mut aliases = HashMap::new();
+    let mut interfaces = HashMap::new();
     let mut functions = Vec::new();
     for statement in &program.body {
         if let Statement::TSTypeAliasDeclaration(alias) = statement
@@ -35,11 +37,22 @@ pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<D
         {
             aliases.insert(alias.id.name.as_str(), &alias.type_annotation);
         }
+        if let Some(interface) = top_level_interface(statement)
+            && interface.type_parameters.is_none()
+            && interface.extends.is_empty()
+            && interface
+                .id
+                .symbol_id
+                .get()
+                .is_some_and(|symbol| scoping.symbol_redeclarations(symbol).is_empty())
+        {
+            interfaces.insert(interface.id.name.as_str(), interface);
+        }
         if let Some(function) = top_level_function(statement) {
             functions.push(function);
         }
     }
-    let mut checker = Checker::new(program.source_text, aliases, scoping);
+    let mut checker = Checker::new(program.source_text, aliases, interfaces, scoping);
     for function in functions {
         if function
             .id
@@ -52,6 +65,21 @@ pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<D
     }
     checker.visit_program(program);
     checker.diagnostics
+}
+
+fn top_level_interface<'a>(statement: &'a Statement<'a>) -> Option<&'a TSInterfaceDeclaration<'a>> {
+    match statement {
+        Statement::TSInterfaceDeclaration(interface) => Some(interface),
+        Statement::ExportDeclaration(export) => match &export.declaration {
+            Declaration::TSInterfaceDeclaration(interface) => Some(interface),
+            _ => None,
+        },
+        Statement::ExportDefaultDeclaration(export) => match &export.declaration {
+            ExportDefaultDeclarationKind::TSInterfaceDeclaration(interface) => Some(interface),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn top_level_function<'a>(statement: &'a Statement<'a>) -> Option<&'a Function<'a>> {
@@ -73,7 +101,8 @@ struct Checker<'a> {
     source_text: &'a str,
     scoping: &'a Scoping,
     aliases: HashMap<&'a str, &'a TSType<'a>>,
-    resolving_aliases: HashSet<&'a str>,
+    interfaces: HashMap<&'a str, &'a TSInterfaceDeclaration<'a>>,
+    resolving_named_types: HashSet<&'a str>,
     diagnostics: Vec<Diagnostic>,
     types: TypeStore,
     relations: TypeRelations,
@@ -122,13 +151,15 @@ impl<'a> Checker<'a> {
     fn new(
         source_text: &'a str,
         aliases: HashMap<&'a str, &'a TSType<'a>>,
+        interfaces: HashMap<&'a str, &'a TSInterfaceDeclaration<'a>>,
         scoping: &'a Scoping,
     ) -> Self {
         Self {
             source_text,
             scoping,
             aliases,
-            resolving_aliases: HashSet::new(),
+            interfaces,
+            resolving_named_types: HashSet::new(),
             diagnostics: Vec::new(),
             types: TypeStore::new(),
             relations: TypeRelations::default(),
@@ -389,28 +420,7 @@ impl<'a> Checker<'a> {
                 let element = self.type_from_annotation(&array.element_type)?;
                 Some(self.types.array(element))
             }
-            TSType::TSTypeLiteral(literal) => {
-                let properties: Option<Vec<_>> = literal
-                    .members
-                    .iter()
-                    .map(|member| {
-                        let TSSignature::TSPropertySignature(property) = member else {
-                            return None;
-                        };
-                        if property.computed {
-                            return None;
-                        }
-                        let name = property.key.static_name()?.into_owned();
-                        let annotation = property.type_annotation.as_ref()?;
-                        Some(ObjectTypeProperty {
-                            name,
-                            type_id: self.type_from_annotation(&annotation.type_annotation)?,
-                            optional: property.optional,
-                        })
-                    })
-                    .collect();
-                Some(self.types.object(properties?))
-            }
+            TSType::TSTypeLiteral(literal) => self.type_from_property_members(&literal.members),
             TSType::TSTypeReference(reference) => {
                 if let Some(element) = Self::generic_array_element(annotation) {
                     let element = self.type_from_annotation(element)?;
@@ -423,12 +433,17 @@ impl<'a> Checker<'a> {
                     return None;
                 };
                 let name = name.name.as_str();
-                let alias = self.aliases.get(name).copied()?;
-                if !self.resolving_aliases.insert(name) {
+                if !self.resolving_named_types.insert(name) {
                     return None;
                 }
-                let resolved = self.type_from_annotation(alias);
-                self.resolving_aliases.remove(name);
+                let resolved = if let Some(alias) = self.aliases.get(name).copied() {
+                    self.type_from_annotation(alias)
+                } else if let Some(interface) = self.interfaces.get(name).copied() {
+                    self.type_from_interface(interface)
+                } else {
+                    None
+                };
+                self.resolving_named_types.remove(name);
                 resolved
             }
             TSType::TSParenthesizedType(parenthesized) => {
@@ -436,6 +451,35 @@ impl<'a> Checker<'a> {
             }
             _ => None,
         }
+    }
+
+    fn type_from_interface(&mut self, interface: &'a TSInterfaceDeclaration<'a>) -> Option<TypeId> {
+        if interface.type_parameters.is_some() || !interface.extends.is_empty() {
+            return None;
+        }
+        self.type_from_property_members(&interface.body.body)
+    }
+
+    fn type_from_property_members(&mut self, members: &[TSSignature<'a>]) -> Option<TypeId> {
+        let properties: Option<Vec<_>> = members
+            .iter()
+            .map(|member| {
+                let TSSignature::TSPropertySignature(property) = member else {
+                    return None;
+                };
+                if property.computed {
+                    return None;
+                }
+                let name = property.key.static_name()?.into_owned();
+                let annotation = property.type_annotation.as_ref()?;
+                Some(ObjectTypeProperty {
+                    name,
+                    type_id: self.type_from_annotation(&annotation.type_annotation)?,
+                    optional: property.optional,
+                })
+            })
+            .collect();
+        Some(self.types.object(properties?))
     }
 
     fn type_from_literal(&mut self, literal: &TSLiteral<'a>) -> Option<TypeId> {
@@ -952,21 +996,54 @@ impl<'a> Checker<'a> {
     where
         'a: 'b,
     {
-        let TSType::TSTypeLiteral(literal) = self.resolve_annotation(annotation)? else {
-            return None;
-        };
-        literal.members.iter().find_map(|member| {
-            let TSSignature::TSPropertySignature(property) = member else {
-                return None;
-            };
-            property
-                .key
-                .static_name()
-                .is_some_and(|property_name| property_name == name)
-                .then(|| property.type_annotation.as_ref())
-                .flatten()
-                .map(|annotation| &annotation.type_annotation)
-        })
+        self.object_annotation_members(annotation)?
+            .iter()
+            .find_map(|member| {
+                let TSSignature::TSPropertySignature(property) = member else {
+                    return None;
+                };
+                property
+                    .key
+                    .static_name()
+                    .is_some_and(|property_name| property_name == name)
+                    .then(|| property.type_annotation.as_ref())
+                    .flatten()
+                    .map(|annotation| &annotation.type_annotation)
+            })
+    }
+
+    fn object_annotation_members<'b>(
+        &self,
+        annotation: &'b TSType<'a>,
+    ) -> Option<&'b [TSSignature<'a>]>
+    where
+        'a: 'b,
+    {
+        let mut annotation = annotation;
+        let mut remaining_named_types = self.aliases.len() + self.interfaces.len() + 1;
+        loop {
+            match annotation {
+                TSType::TSTypeLiteral(literal) => return Some(&literal.members),
+                TSType::TSTypeReference(reference) if reference.type_arguments.is_none() => {
+                    let TSTypeName::IdentifierReference(identifier) = &reference.type_name else {
+                        return None;
+                    };
+                    if remaining_named_types == 0 {
+                        return None;
+                    }
+                    remaining_named_types -= 1;
+                    let name = identifier.name.as_str();
+                    if let Some(interface) = self.interfaces.get(name) {
+                        return Some(&interface.body.body);
+                    }
+                    annotation = self.aliases.get(name).copied()?;
+                }
+                TSType::TSParenthesizedType(parenthesized) => {
+                    annotation = &parenthesized.type_annotation;
+                }
+                _ => return None,
+            }
+        }
     }
 
     fn array_element_annotation<'b>(&self, annotation: &'b TSType<'a>) -> Option<&'b TSType<'a>>

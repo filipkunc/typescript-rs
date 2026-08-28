@@ -18,6 +18,9 @@ const REGISTERED_CASES: &[&str] = &[
     "callable_symbol_resolution.ts",
     "contextual_union_shapes.ts",
     "diagnostic_assignment_anchors.ts",
+    "interface_callable_interactions.ts",
+    "interface_properties_valid.ts",
+    "interface_structural_errors.ts",
     "json_shaped_values_complete.ts",
     "literal_union_aliases.ts",
     "negative_numeric_literals.ts",
@@ -147,6 +150,21 @@ fn contextual_union_shapes() {
 #[test]
 fn diagnostic_assignment_anchors() {
     run_case("diagnostic_assignment_anchors.ts");
+}
+
+#[test]
+fn interface_callable_interactions() {
+    run_case("interface_callable_interactions.ts");
+}
+
+#[test]
+fn interface_properties_valid() {
+    run_case("interface_properties_valid.ts");
+}
+
+#[test]
+fn interface_structural_errors() {
+    run_case("interface_structural_errors.ts");
 }
 
 #[test]

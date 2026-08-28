@@ -80,6 +80,31 @@ selectStatus("pending");
 echo(42);
 "#;
 
+const PROPERTY_INTERFACE_SOURCE: &str = r#"
+type Status = "active" | "disabled";
+
+interface Address {
+    city: string;
+    coordinates: number[];
+}
+
+interface User {
+    id: number;
+    status: Status;
+    address: Address;
+}
+
+function identity(user: User): User {
+    return user;
+}
+
+export const selected: User = identity({
+    id: 1,
+    status: "active",
+    address: { city: "Vienna", coordinates: [48.2, 16.37] },
+});
+"#;
+
 fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/small_file", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SOURCE));
@@ -101,6 +126,9 @@ fn check_file(criterion: &mut Criterion) {
     });
     criterion.bench_function("parse_bind_check/annotated_callables", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", ANNOTATED_CALLABLE_SOURCE));
+    });
+    criterion.bench_function("parse_bind_check/property_interfaces", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", PROPERTY_INTERFACE_SOURCE));
     });
 }
 
