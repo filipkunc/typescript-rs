@@ -20,9 +20,9 @@ stable enough to justify them.
 The Oxc source baseline is pinned as the `vendor/oxc` Git submodule so editor-recovery changes to
 the AST, parser, generated visitors, and semantic builder can be developed and tested together.
 Cargo resolves every Oxc crate from that checkout; normal parser behavior remains the baseline
-until the opt-in recovery mode described in the [recovery plan](oxc-editor-recovery-plan.md) is
-implemented. Exact fork and upstream revisions are recorded in the
-[compatibility note](oxc-fork.md).
+and the first opt-in recovery slice described in the [recovery plan](oxc-editor-recovery-plan.md)
+preserves a missing variable initializer as `MissingExpression`. Exact fork and upstream revisions
+are recorded in the [compatibility note](oxc-fork.md).
 
 `check_source` currently runs all stages serially for one file. A future `Program` should
 own source snapshots and stable file identities, and should schedule independent files in
