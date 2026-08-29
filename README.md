@@ -73,6 +73,8 @@ The pinned [Oxc playground](https://github.com/filipkunc/playground) is availabl
 `vendor/oxc-playground` and builds against this repository's exact `vendor/oxc` revision. It
 provides Monaco source editing, AST exploration, diagnostics, scopes, symbols, and control-flow
 visualization without using a published Oxc package.
+The sidebar displays `fork @<sha>` from the linked checkout and points to the corresponding
+`filipkunc/oxc` commit, making the parser implementation under review explicit.
 
 With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 

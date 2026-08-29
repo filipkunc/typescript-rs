@@ -13,7 +13,7 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Fork `main` observed at adoption: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
 - Playground fork: <https://github.com/filipkunc/playground>
-- Pinned playground revision: `2f486cae26613e5569935d0022c60f3205efdf3e`
+- Pinned playground revision: `357b37b4602f6e56423bc17383acd9bc5677f1c3`
 - Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and no
   checker API changes
 
