@@ -42,3 +42,38 @@ jobs:
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
+
+  playground:
+    name: Build Oxc playground
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - name: Build pinned Oxc WASM and playground frontend
+        run: ./scripts/oxc-playground setup
+
+      - name: Check playground formatting
+        working-directory: vendor/oxc-playground
+        run: pnpm fmt --check
+
+      - name: Type-check and lint playground
+        working-directory: vendor/oxc-playground
+        run: pnpm lint
+
+      - name: Verify submodules remain clean
+        run: git diff --exit-code

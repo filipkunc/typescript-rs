@@ -20,10 +20,11 @@ The Oxc playground is split across two repositories:
   application, Monaco editor, collapsible AST tree, source-to-node hover synchronization, parser
   options, diagnostic markers, split panes, and shareable URL state.
 
-The frontend intentionally links to a sibling `../oxc/napi/playground` checkout. A future fork
-checkout at `vendor/oxc-playground` naturally resolves that link to this repository's
-`vendor/oxc`. Keep the frontend as its own fork or submodule rather than copying its components
-into `tsrs`; that preserves its upstream history and keeps Rust parser work separate from UI work.
+The frontend intentionally links to a sibling `../oxc/napi/playground` checkout. The
+[`filipkunc/playground`](https://github.com/filipkunc/playground) fork is pinned at
+`vendor/oxc-playground`, so that link naturally resolves to this repository's `vendor/oxc`. Keeping
+the frontend as its own submodule rather than copying its components into `tsrs` preserves its
+upstream history and keeps Rust parser work separate from UI work.
 
 ## Recovery inspection boundary
 
@@ -124,6 +125,6 @@ Keep two coordinated, independently reviewable changes:
 1. the Oxc fork PR adds the AST/parser behavior and the parse-only inspection response;
 2. the playground fork PR renders that response and provides a preview URL.
 
-After the playground fork location is chosen, pin it rather than depending on its moving main
-branch. Do not advance the `tsrs` Oxc gitlink until the Oxc tests pass and the matching playground
-preview has been reviewed. Record both revisions in the compatibility note.
+The playground fork is pinned rather than following its moving main branch. Do not advance the
+`tsrs` Oxc gitlink until the Oxc tests pass and the matching playground preview has been reviewed.
+Record both revisions in the compatibility note.

@@ -1,3 +1,6 @@
 [submodule "vendor/oxc"]
 	path = vendor/oxc
 	url = https://github.com/filipkunc/oxc.git
+[submodule "vendor/oxc-playground"]
+	path = vendor/oxc-playground
+	url = https://github.com/filipkunc/playground.git

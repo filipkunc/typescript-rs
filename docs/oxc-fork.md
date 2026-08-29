@@ -12,6 +12,8 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Pinned fork revision: `4e258430cdb290598d9f2aeb2d13be598ec9e8e9`
 - Fork `main` observed at adoption: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
+- Playground fork: <https://github.com/filipkunc/playground>
+- Pinned playground revision: `2f486cae26613e5569935d0022c60f3205efdf3e`
 - Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and no
   checker API changes
 
@@ -30,3 +32,5 @@ Develop recovery changes on a dedicated branch in the fork. Before recording a n
 4. review both the Oxc commit range and the superproject gitlink change.
 
 Fresh checkouts must initialize the submodule with `git submodule update --init --recursive`.
+Run `./scripts/oxc-playground setup` once and `./scripts/oxc-playground serve` to inspect the pinned
+Oxc revision in Monaco. The frontend's sibling dependency resolves to `vendor/oxc/napi/playground`.
