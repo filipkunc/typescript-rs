@@ -2,7 +2,8 @@
 
 Status: Stage 0 in progress. The fork and pinned submodule baseline are established, and the
 [first missing-expression change](oxc-first-editor-recovery-change.md) is designed; recovery AST
-work has not started.
+work has not started. The [recovery playground](oxc-recovery-playground.md) defines the required
+human review surface.
 
 ## Decision
 
@@ -169,6 +170,8 @@ parser, visitors, and semantic builder can be tested atomically with `tsrs`.
 
 The first fork implementation is scoped in
 [`oxc-first-editor-recovery-change.md`](oxc-first-editor-recovery-change.md).
+Its interactive review workflow is scoped in
+[`oxc-recovery-playground.md`](oxc-recovery-playground.md).
 
 1. Record the exact Oxc revision currently used by `tsrs` and create the fork from that compatible
    revision or from a deliberately reviewed upgrade. (Baseline established.)
@@ -273,6 +276,13 @@ Integration tests should prove that:
 
 Message normalization must not be used to make a structurally failed parse appear recovered.
 
+### Interactive review
+
+Automated tests establish the contract, while the recovery playground makes whole-program behavior
+reviewable during real edit sequences. Each recovery slice must have a named playground example
+and preview showing normal/editor structure, diagnostics, recovery sites, and surviving bindings.
+Manual findings must be reduced into permanent focused tests; the preview never replaces a test.
+
 ## Implementation stages
 
 ### Stage 0: Baseline and research
@@ -282,6 +292,7 @@ Message normalization must not be used to make a structurally failed parse appea
 - Extract the TypeScript-Go parsing contexts, list terminators, missing-node creation, and
   parse-error propagation relevant to the first grammar slice.
 - Establish the recovery manifest format and baseline the initial fixture corpus.
+- Establish the playground fork workflow and a buildable preview against the pinned Oxc checkout.
 
 ### Stage 1: Recovery infrastructure
 
@@ -290,6 +301,7 @@ Message normalization must not be used to make a structurally failed parse appea
 - Select and implement the minimum missing/error representation.
 - Preserve a recovered `Program` instead of replacing it with `Program::dummy` in editor mode.
 - Add span, visitor, and semantic-safety invariant tests.
+- Expose a parse-only recovery inspection response and visualize it in the playground.
 
 No `tsrs` dependency switch should happen at this stage unless the infrastructure already improves
 an end-to-end fixture.
@@ -332,7 +344,9 @@ The first Oxc recovery milestone is complete when:
 5. `tsrs` checks unaffected code and suppresses diagnostics derived only from missing syntax;
 6. the LSP edit sequence is covered by automated tests;
 7. Oxc's normal parse mode and valid-source AST behavior remain unchanged;
-8. Oxc and `tsrs` formatting, linting, tests, documentation, and relevant benchmarks pass.
+8. the matching playground preview shows the recovered tree, diagnostics, and surviving bindings;
+9. Oxc, the playground, and `tsrs` formatting, linting, tests, documentation, and relevant
+   benchmarks pass.
 
 ## Performance checks
 

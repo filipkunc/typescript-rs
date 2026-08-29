@@ -101,6 +101,18 @@ Do not add general recovery contexts, assignment-RHS recovery, missing identifie
 argument/parameter recovery, skipped-token nodes, diagnostic-code normalization in `tsrs`, or
 support for recovered nodes in Oxc's batch consumers in this PR.
 
+## Playground review surface
+
+The first fork PR should expose the recovered program through the parse-only inspection response
+defined in [`oxc-recovery-playground.md`](oxc-recovery-playground.md). A coordinated playground PR
+must provide a preview with normal/editor comparison before the new Oxc revision is adopted by
+`tsrs`.
+
+For the first target, the recovery tree must show `MissingExpression` as the initializer of
+`broken`, retain `intact`, render the zero-width insertion point in Monaco, and clear the recovery
+node when an initializer is typed. This inspection response is separate from ESTree and does not
+authorize formatter, transform, minifier, linter, or code-generation support for recovered nodes.
+
 ## Tests and acceptance criteria
 
 The test layers are additive. The existing Oxc corpus is the regression net for normal parsing,
