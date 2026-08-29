@@ -1,5 +1,10 @@
 # First Oxc editor-recovery change: missing expressions
 
+Status: implemented and merged in the pinned Oxc and playground forks. The `tsrs` integration gate
+is also complete: `check_source` opts into editor mode, a focused conformance case proves that a
+later declaration is still checked without a cascade from `MissingExpression`, and the LSP test
+completes the initializer and observes the recovery diagnostic disappear.
+
 ## Decision
 
 The first fork change should add an explicit zero-width `MissingExpression` AST node and emit it
@@ -191,12 +196,12 @@ fuzz target once the recovery contexts expand.
 
 ### `tsrs` integration gate
 
-Only after all Oxc gates pass should `tsrs` advance the submodule gitlink. Add a named conformance
-fixture and exact `.errors` sidecar proving that `intact` still receives its type diagnostic while
-`broken` produces no dependent type cascade. Add an LSP edit-sequence test which observes the
-incomplete state and then completion of the initializer. The existing `tsrs` conformance suite and
-the repository's full formatting, lint, test, rustdoc, and relevant benchmark gates must remain
-green.
+After the Oxc gates passed, `tsrs` advanced the submodule gitlink and added the named
+`recovered_missing_initializer` conformance fixture with its exact `.errors` sidecar. The fixture
+proves that `intact` still receives its type diagnostic while annotated `broken` produces no
+dependent type cascade. The LSP edit-sequence test observes the incomplete state and then completion
+of the initializer. The existing `tsrs` conformance suite and the repository's full formatting,
+lint, test, rustdoc, and relevant benchmark gates remain required for every later pin.
 
 ## Follow-up
 

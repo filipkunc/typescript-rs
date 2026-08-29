@@ -11,7 +11,9 @@ mod signatures;
 pub mod types;
 
 use oxc_allocator::Allocator;
-use oxc_parser::Parser;
+use oxc_ast::{AstKind, ast::Program};
+use oxc_ast_visit::Visit;
+use oxc_parser::{ParseMode, ParseOptions, Parser};
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
 
@@ -35,7 +37,12 @@ pub fn check_source(file_name: &str, source_text: &str) -> CheckResult {
     };
 
     let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, source_text, source_type).parse();
+    let parsed = Parser::new(&allocator, source_text, source_type)
+        .with_options(ParseOptions {
+            mode: ParseMode::Editor,
+            ..ParseOptions::default()
+        })
+        .parse();
     let mut result = CheckResult::default();
     result.extend_parse_diagnostics(parsed.diagnostics, source_text);
 
@@ -43,14 +50,33 @@ pub fn check_source(file_name: &str, source_text: &str) -> CheckResult {
         return result;
     }
 
+    let contains_recovery = !result.is_ok() && contains_editor_recovery(&parsed.program);
     let semantic = SemanticBuilder::new_compiler().build(&parsed.program);
+    let can_check = semantic.diagnostics.is_empty() && (result.is_ok() || contains_recovery);
     result.extend_oxc(semantic.diagnostics, Phase::Bind);
 
-    if result.is_ok() {
+    if can_check {
         result
             .diagnostics
             .extend(checker::check(&parsed.program, semantic.semantic.scoping()));
     }
 
     result
+}
+
+#[derive(Default)]
+struct RecoveryFinder {
+    found: bool,
+}
+
+impl<'a> Visit<'a> for RecoveryFinder {
+    fn enter_node(&mut self, kind: AstKind<'a>) {
+        self.found |= matches!(kind, AstKind::MissingExpression(_));
+    }
+}
+
+fn contains_editor_recovery<'a>(program: &'a Program<'a>) -> bool {
+    let mut finder = RecoveryFinder::default();
+    finder.visit_program(program);
+    finder.found
 }

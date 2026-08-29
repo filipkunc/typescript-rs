@@ -1,9 +1,11 @@
 # Oxc editor recovery fork plan
 
-Status: Stage 0 in progress. The fork and pinned submodule baseline are established, and the
-[first missing-expression change](oxc-first-editor-recovery-change.md) is designed; recovery AST
-work has not started. The [recovery playground](oxc-recovery-playground.md) defines the required
-human review surface.
+Status: the first narrow vertical slice is integrated. The merged and pinned Oxc fork represents a
+missing variable initializer as `MissingExpression` in opt-in editor mode, the pinned playground
+can inspect that mode, and `tsrs` now preserves the parser diagnostic while checking trustworthy
+later declarations. This cuts through parts of Stages 1 and 2 without completing either stage:
+general recovery contexts, the reference manifest, assignment/object/array/argument recovery, and
+the full structural comparison UI remain outstanding.
 
 ## Decision
 
@@ -285,6 +287,10 @@ Manual findings must be reduced into permanent focused tests; the preview never 
 
 ## Implementation stages
 
+The stages describe capability dependencies rather than release boundaries. The first
+missing-initializer slice deliberately proved one AST node end to end before introducing the
+general context machinery.
+
 ### Stage 0: Baseline and research
 
 - Pin the Oxc and TypeScript-Go reference revisions.
@@ -314,6 +320,14 @@ expression and JSON-shaped milestones usable through common incomplete edits.
 
 Switch `tsrs` to an exact fork revision only when the end-to-end corpus demonstrates a clear gain
 and all existing conformance tests remain stable.
+
+The first integration point is complete for variable initializers at comma, semicolon,
+closing-brace, and EOF boundaries. `check_source` selects editor mode, binds the recovered program,
+suppresses checker diagnostics derived from `MissingExpression`, and continues checking independent
+code. The next fork slice must be specified narrowly before implementation; it should introduce the
+minimum explicit expression/list recovery context needed for a missing assignment right-hand side,
+then use that proven progress rule for array elements, object property values, and arguments in
+separate focused increments.
 
 ### Stage 3: Functions and interfaces
 

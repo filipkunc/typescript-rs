@@ -34,6 +34,7 @@ const REGISTERED_CASES: &[&str] = &[
     "object_type_optional_properties.ts",
     "object_type_property_types.ts",
     "primitive_literals.ts",
+    "recovered_missing_initializer.ts",
     "simple_assignment_errors.ts",
     "unexpected_statement_token.ts",
     "valid_primitive_literals.ts",
@@ -44,6 +45,11 @@ const REGISTERED_CASES: &[&str] = &[
 #[test]
 fn primitive_literals() {
     run_case("primitive_literals.ts");
+}
+
+#[test]
+fn recovered_missing_initializer() {
+    run_case("recovered_missing_initializer.ts");
 }
 
 #[test]

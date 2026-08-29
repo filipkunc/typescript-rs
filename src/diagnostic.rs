@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Write};
 
-use oxc_diagnostics::Diagnostics;
+use oxc_diagnostics::{Diagnostics, OxcCode};
 
 /// The compiler stage that produced a diagnostic.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,24 +87,23 @@ impl CheckResult {
         source_text: Option<&str>,
     ) {
         for diagnostic in diagnostics {
-            let code = if diagnostic.code.is_some() {
-                diagnostic.code.to_string()
-            } else {
-                match phase {
-                    Phase::Parse => "TSRS1000".to_owned(),
-                    Phase::Bind => "TSRS1001".to_owned(),
-                    Phase::Check => "TSRS1002".to_owned(),
-                }
-            };
+            let code = diagnostic_code(&diagnostic.code, phase);
             let label = diagnostic
                 .labels
                 .iter()
                 .find(|label| label.primary())
                 .or_else(|| diagnostic.labels.first());
-            let range = label.map(|label| {
+            let mut range = label.map(|label| {
                 TextRange::new(label.offset(), label.offset().saturating_add(label.len()))
             });
             let message = diagnostic.message.to_string();
+            if let Some(source_text) = source_text
+                && code == "TS1109"
+                && message == "Expression expected."
+                && let Some(normalized) = normalize_trailing_missing_expression(source_text, range)
+            {
+                range = Some(normalized);
+            }
             if let Some(source_text) = source_text
                 && message == "Unexpected token"
                 && let Some(normalized) = normalize_unexpected_token(source_text, range)
@@ -152,6 +151,35 @@ impl CheckResult {
             }
         }
         output
+    }
+}
+
+fn normalize_trailing_missing_expression(
+    source_text: &str,
+    range: Option<TextRange>,
+) -> Option<TextRange> {
+    let range = range?;
+    let trimmed = source_text.trim_end();
+    let trimmed_end = u32::try_from(trimmed.len()).ok()?;
+    (range.start >= trimmed_end
+        && trimmed.ends_with('=')
+        && !ends_with_type_alias_declaration(trimmed))
+    .then(|| TextRange::new(trimmed_end, trimmed_end))
+}
+
+fn diagnostic_code(code: &OxcCode, phase: Phase) -> String {
+    if let (Some(scope), Some(number)) = (&code.scope, &code.number)
+        && scope == "TS"
+    {
+        return format!("{scope}{number}");
+    }
+    if code.is_some() {
+        return code.to_string();
+    }
+    match phase {
+        Phase::Parse => "TSRS1000".to_owned(),
+        Phase::Bind => "TSRS1001".to_owned(),
+        Phase::Check => "TSRS1002".to_owned(),
     }
 }
 
@@ -259,7 +287,12 @@ fn floor_char_boundary(text: &str, mut index: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{TextRange, line_and_column, normalize_unexpected_token};
+    use oxc_diagnostics::OxcCode;
+
+    use super::{
+        Phase, TextRange, diagnostic_code, line_and_column, normalize_trailing_missing_expression,
+        normalize_unexpected_token,
+    };
 
     #[test]
     fn calculates_unicode_locations() {
@@ -272,5 +305,23 @@ mod tests {
         let end = u32::try_from(source.len()).expect("test source fits in a text range");
 
         assert!(normalize_unexpected_token(source, Some(TextRange::new(end, end))).is_none());
+    }
+
+    #[test]
+    fn joins_structured_oxc_diagnostic_codes_at_the_owned_boundary() {
+        let code = OxcCode {
+            scope: Some("TS".into()),
+            number: Some("1109".into()),
+        };
+
+        assert_eq!(diagnostic_code(&code, Phase::Parse), "TS1109");
+    }
+
+    #[test]
+    fn anchors_a_trailing_missing_expression_before_final_whitespace() {
+        assert_eq!(
+            normalize_trailing_missing_expression("const value =\n", Some(TextRange::new(14, 14))),
+            Some(TextRange::new(13, 13))
+        );
     }
 }

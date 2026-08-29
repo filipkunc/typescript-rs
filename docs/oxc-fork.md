@@ -18,13 +18,15 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Playground branch: `feat/editor-recovery-playground`
 - Playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
 - Pinned playground revision: `ebb97febdd6de95acd074bfdf4ca6c0ec4dfc998`
-- Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and no
-  checker API changes; the playground opts into `ParseMode::Editor`
+- Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and
+  `check_source` opting into `ParseMode::Editor`; the public checker API is unchanged
 
 The recovery work started at the exact release revision and was synchronized with fork `main`
 before merge. It declares the Oxc crates consumed by `tsrs` as version `0.147.0`. The first fork
 commit adds opt-in recovery for a variable initializer missing after `=`, represented by a
-zero-width, Rust-only `MissingExpression`. Normal parser mode remains the default.
+zero-width, Rust-only `MissingExpression`. Normal parser mode remains the Oxc default. `tsrs`
+selects editor mode at its single-file parse boundary, runs semantic construction on the recovered
+program, and checks independent code only when the recovered node kind has a tested safe policy.
 
 The merged candidate passed Oxc AST generation, workspace-wide all-target compilation, strict
 all-target/all-feature Clippy, focused parser and semantic tests, and the all-feature test suite

@@ -115,6 +115,11 @@ annotated = 1;
 annotated = "invalid";
 "#;
 
+const RECOVERED_MISSING_INITIALIZER_SOURCE: &str = r#"
+const broken: number = ;
+const intact: number = "wrong";
+"#;
+
 fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/small_file", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SOURCE));
@@ -143,6 +148,12 @@ fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/simple_assignments", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", SIMPLE_ASSIGNMENT_SOURCE));
     });
+    criterion.bench_function(
+        "parse_bind_check/editor_recovery_missing_initializer",
+        |bencher| {
+            bencher.iter(|| check_source("benchmark.ts", RECOVERED_MISSING_INITIALIZER_SOURCE));
+        },
+    );
 }
 
 criterion_group!(benches, check_file);
