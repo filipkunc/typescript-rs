@@ -7,13 +7,13 @@ description = "An experimental TypeScript type checker written in Rust"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-oxc_allocator = "0.147.0"
-oxc_ast = "0.147.0"
-oxc_ast_visit = "0.147.0"
-oxc_diagnostics = "0.147.0"
-oxc_parser = "0.147.0"
-oxc_semantic = "0.147.0"
-oxc_span = "0.147.0"
+oxc_allocator = { version = "0.147.0", path = "vendor/oxc/crates/oxc_allocator" }
+oxc_ast = { version = "0.147.0", path = "vendor/oxc/crates/oxc_ast" }
+oxc_ast_visit = { version = "0.147.0", path = "vendor/oxc/crates/oxc_ast_visit" }
+oxc_diagnostics = { version = "0.147.0", path = "vendor/oxc/crates/oxc_diagnostics" }
+oxc_parser = { version = "0.147.0", path = "vendor/oxc/crates/oxc_parser" }
+oxc_semantic = { version = "0.147.0", path = "vendor/oxc/crates/oxc_semantic" }
+oxc_span = { version = "0.147.0", path = "vendor/oxc/crates/oxc_span" }
 tokio = { version = "1", features = ["io-std", "rt-multi-thread"] }
 tower-lsp-server = "0.23.0"
 

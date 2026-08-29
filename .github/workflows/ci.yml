@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Show toolchain
         run: rustup show active-toolchain
@@ -40,4 +42,3 @@ jobs:
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
-

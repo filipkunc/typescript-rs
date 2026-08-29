@@ -50,6 +50,14 @@ diagnostic so partially typed editor input is easier to compare.
 
 ## Try it
 
+Clone with the pinned Oxc fork submodule, or initialize it in an existing checkout:
+
+```console
+git clone --recurse-submodules https://github.com/filipkunc/typescript-rs.git
+# Existing checkout:
+git submodule update --init --recursive
+```
+
 ```console
 cargo run --bin tsrs -- example.ts
 cargo test
@@ -151,8 +159,11 @@ strict, ESNext target/module/library, no-emit profile. A mismatch is evidence to
 or checker; blessing the local `.errors` baseline does not resolve it. Update
 `tests/tsgo-reference.txt` only as an explicit, reviewed reference-version change.
 
-See [Goals.md](Goals.md), [architecture](docs/architecture.md), and
-[bootstrap research](docs/bootstrap-research.md) for scope and design rationale.
+See [Goals.md](Goals.md), [architecture](docs/architecture.md),
+[bootstrap research](docs/bootstrap-research.md), and the
+[Oxc editor-recovery plan](docs/oxc-editor-recovery-plan.md) for scope and design rationale. The
+[first fork change](docs/oxc-first-editor-recovery-change.md) defines the initial missing-expression
+AST slice.
 
 ## License
 

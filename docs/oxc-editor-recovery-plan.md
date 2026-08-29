@@ -1,6 +1,8 @@
 # Oxc editor recovery fork plan
 
-Status: proposed architecture work, not yet started.
+Status: Stage 0 in progress. The fork and pinned submodule baseline are established, and the
+[first missing-expression change](oxc-first-editor-recovery-change.md) is designed; recovery AST
+work has not started.
 
 ## Decision
 
@@ -160,20 +162,30 @@ subexpressions.
 
 ## Fork and dependency workflow
 
+The fork is [`filipkunc/oxc`](https://github.com/filipkunc/oxc) and is checked out at
+`vendor/oxc` as a pinned Git submodule. See [`oxc-fork.md`](oxc-fork.md) for the exact upstream and
+fork revisions. Cargo resolves the Oxc crates directly from that checkout so changes to the AST,
+parser, visitors, and semantic builder can be tested atomically with `tsrs`.
+
+The first fork implementation is scoped in
+[`oxc-first-editor-recovery-change.md`](oxc-first-editor-recovery-change.md).
+
 1. Record the exact Oxc revision currently used by `tsrs` and create the fork from that compatible
-   revision or from a deliberately reviewed upgrade.
+   revision or from a deliberately reviewed upgrade. (Baseline established.)
 2. Keep a dedicated recovery branch in the fork. Do not build unrelated checker behavior into it.
-3. During local development, use Cargo's path patching against a sibling checkout.
-4. Once a tested fork revision exists, pin every Oxc dependency to an exact Git revision; do not
-   depend on a moving branch.
+3. During local development, commit fork work in the `vendor/oxc` checkout, push it to the fork,
+   and update the superproject's gitlink. A sibling checkout may still be used for Oxc-only work,
+   but the integration baseline is always the submodule commit.
+4. Pin every Oxc dependency through the submodule gitlink; do not depend on a moving branch or on
+   an unrecorded sibling path.
 5. Keep a small compatibility note containing the Oxc base revision, fork revision, and required
    `tsrs` changes.
 6. Regularly rebase or merge upstream in small intervals and rerun both Oxc and `tsrs` validation.
 7. Submit generally useful recovery primitives and narrow grammar fixes upstream when they can be
    separated cleanly. The fork remains the integration vehicle until upstream support is complete.
 
-The fork repository name and hosting location are intentionally undecided until implementation
-starts. No `Cargo.toml` dependency should change before an actual tested revision is available.
+Do not advance the submodule pin until the candidate revision passes the relevant Oxc tests and the
+full `tsrs` validation suite.
 
 ## Test strategy
 
