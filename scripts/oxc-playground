@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+oxc_dir="${repo_root}/vendor/oxc"
+playground_dir="${repo_root}/vendor/oxc-playground"
+browser_loader="${oxc_dir}/napi/playground/playground.wasi-browser.js"
+browser_loader_backup=""
+
+cleanup() {
+  if [[ -n "${browser_loader_backup}" && -f "${browser_loader_backup}" ]]; then
+    cp -- "${browser_loader_backup}" "${browser_loader}"
+    rm -f -- "${browser_loader_backup}"
+    browser_loader_backup=""
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+check_submodules() {
+  if [[ ! -f "${oxc_dir}/Cargo.toml" || ! -f "${playground_dir}/package.json" ]]; then
+    echo "Initialize the playground submodules first:" >&2
+    echo "  git submodule update --init --recursive" >&2
+    exit 1
+  fi
+}
+
+ensure_wasm_target() {
+  require_command rustup
+
+  (
+    cd "${oxc_dir}"
+    if ! rustup target list --installed | grep -qx "wasm32-wasip1-threads"; then
+      rustup target add wasm32-wasip1-threads
+    fi
+  )
+}
+
+install_dependencies() {
+  require_command pnpm
+  ensure_wasm_target
+
+  (
+    cd "${oxc_dir}"
+    pnpm install --frozen-lockfile
+  )
+  (
+    cd "${playground_dir}"
+    pnpm install --frozen-lockfile
+  )
+}
+
+build_playground() {
+  require_command node
+  require_command pnpm
+  ensure_wasm_target
+
+  if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
+    install_dependencies
+  fi
+
+  # Oxc's build patches this tracked generated loader for browser AST access. Preserve and restore
+  # the pinned source file after the frontend has bundled the patched loader so the submodule does
+  # not remain dirty after a local playground build.
+  browser_loader_backup="$(mktemp)"
+  cp -- "${browser_loader}" "${browser_loader_backup}"
+
+  (
+    cd "${oxc_dir}/napi/playground"
+    pnpm run build-wasm-dev --release
+    node scripts/patch.js
+  )
+  (
+    cd "${playground_dir}"
+    pnpm build
+  )
+
+  cleanup
+}
+
+serve_playground() {
+  require_command pnpm
+
+  if [[ ! -f "${playground_dir}/dist/index.html" ]]; then
+    install_dependencies
+    build_playground
+  fi
+
+  cd "${playground_dir}"
+  exec pnpm preview --host 127.0.0.1
+}
+
+check_submodules
+
+case "${1:-serve}" in
+  setup)
+    install_dependencies
+    build_playground
+    ;;
+  rebuild)
+    build_playground
+    ;;
+  serve)
+    serve_playground
+    ;;
+  *)
+    echo "Usage: $0 [setup|rebuild|serve]" >&2
+    exit 2
+    ;;
+esac

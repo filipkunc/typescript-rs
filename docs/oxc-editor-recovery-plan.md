@@ -1,6 +1,9 @@
 # Oxc editor recovery fork plan
 
-Status: proposed architecture work, not yet started.
+Status: Stage 0 in progress. The fork and pinned submodule baseline are established, and the
+[first missing-expression change](oxc-first-editor-recovery-change.md) is designed; recovery AST
+work has not started. The [recovery playground](oxc-recovery-playground.md) defines the required
+human review surface.
 
 ## Decision
 
@@ -160,20 +163,32 @@ subexpressions.
 
 ## Fork and dependency workflow
 
+The fork is [`filipkunc/oxc`](https://github.com/filipkunc/oxc) and is checked out at
+`vendor/oxc` as a pinned Git submodule. See [`oxc-fork.md`](oxc-fork.md) for the exact upstream and
+fork revisions. Cargo resolves the Oxc crates directly from that checkout so changes to the AST,
+parser, visitors, and semantic builder can be tested atomically with `tsrs`.
+
+The first fork implementation is scoped in
+[`oxc-first-editor-recovery-change.md`](oxc-first-editor-recovery-change.md).
+Its interactive review workflow is scoped in
+[`oxc-recovery-playground.md`](oxc-recovery-playground.md).
+
 1. Record the exact Oxc revision currently used by `tsrs` and create the fork from that compatible
-   revision or from a deliberately reviewed upgrade.
+   revision or from a deliberately reviewed upgrade. (Baseline established.)
 2. Keep a dedicated recovery branch in the fork. Do not build unrelated checker behavior into it.
-3. During local development, use Cargo's path patching against a sibling checkout.
-4. Once a tested fork revision exists, pin every Oxc dependency to an exact Git revision; do not
-   depend on a moving branch.
+3. During local development, commit fork work in the `vendor/oxc` checkout, push it to the fork,
+   and update the superproject's gitlink. A sibling checkout may still be used for Oxc-only work,
+   but the integration baseline is always the submodule commit.
+4. Pin every Oxc dependency through the submodule gitlink; do not depend on a moving branch or on
+   an unrecorded sibling path.
 5. Keep a small compatibility note containing the Oxc base revision, fork revision, and required
    `tsrs` changes.
 6. Regularly rebase or merge upstream in small intervals and rerun both Oxc and `tsrs` validation.
 7. Submit generally useful recovery primitives and narrow grammar fixes upstream when they can be
    separated cleanly. The fork remains the integration vehicle until upstream support is complete.
 
-The fork repository name and hosting location are intentionally undecided until implementation
-starts. No `Cargo.toml` dependency should change before an actual tested revision is available.
+Do not advance the submodule pin until the candidate revision passes the relevant Oxc tests and the
+full `tsrs` validation suite.
 
 ## Test strategy
 
@@ -218,6 +233,16 @@ The probe design must not turn normal tests into a network dependency.
 
 ### Oxc fork tests
 
+Testing has two mandatory, complementary layers. Focused Rust unit/API tests define editor-mode
+behavior and make failures individually runnable. Oxc's existing Test262, Babel, and TypeScript
+conformance suites protect normal-mode behavior across the full grammar. Neither layer substitutes
+for the other, and a fork revision must pass both before `tsrs` advances its submodule pin.
+
+Use Rust tests for contracts the external suites cannot observe: parse-mode selection, recovery
+node kind and span, lexer progress, visitor events, semantic identities, and surviving bindings.
+Use the existing conformance harness for syntax acceptance and diagnostic regressions; do not
+duplicate a normal-mode case in local fixtures when an external suite already covers it.
+
 Every recovery fixture must assert:
 
 - termination and lexer progress;
@@ -232,6 +257,12 @@ Every recovery fixture must assert:
 Fuzz and mutation tests should delete, duplicate, or replace tokens around delimiters and list
 boundaries. Failures should be reduced into permanent focused fixtures.
 
+The required fork gates are generated-code review with `just ast`, focused crate tests, the full
+Rust suite with `just test`, parser conformance with `cargo coverage -- parser`, applicable semantic
+conformance, allocation snapshots with `just allocs`, normal/editor parser benchmarks, `just ready`,
+and fork CI. Unexpected normal-mode conformance or snapshot changes block the revision until they
+are explained and reviewed.
+
 ### `tsrs` integration tests
 
 Mirror the editor-relevant cases in `tsrs` only after the fork exposes the required structure.
@@ -245,6 +276,13 @@ Integration tests should prove that:
 
 Message normalization must not be used to make a structurally failed parse appear recovered.
 
+### Interactive review
+
+Automated tests establish the contract, while the recovery playground makes whole-program behavior
+reviewable during real edit sequences. Each recovery slice must have a named playground example
+and preview showing normal/editor structure, diagnostics, recovery sites, and surviving bindings.
+Manual findings must be reduced into permanent focused tests; the preview never replaces a test.
+
 ## Implementation stages
 
 ### Stage 0: Baseline and research
@@ -254,6 +292,7 @@ Message normalization must not be used to make a structurally failed parse appea
 - Extract the TypeScript-Go parsing contexts, list terminators, missing-node creation, and
   parse-error propagation relevant to the first grammar slice.
 - Establish the recovery manifest format and baseline the initial fixture corpus.
+- Establish the playground fork workflow and a buildable preview against the pinned Oxc checkout.
 
 ### Stage 1: Recovery infrastructure
 
@@ -262,6 +301,7 @@ Message normalization must not be used to make a structurally failed parse appea
 - Select and implement the minimum missing/error representation.
 - Preserve a recovered `Program` instead of replacing it with `Program::dummy` in editor mode.
 - Add span, visitor, and semantic-safety invariant tests.
+- Expose a parse-only recovery inspection response and visualize it in the playground.
 
 No `tsrs` dependency switch should happen at this stage unless the infrastructure already improves
 an end-to-end fixture.
@@ -304,7 +344,9 @@ The first Oxc recovery milestone is complete when:
 5. `tsrs` checks unaffected code and suppresses diagnostics derived only from missing syntax;
 6. the LSP edit sequence is covered by automated tests;
 7. Oxc's normal parse mode and valid-source AST behavior remain unchanged;
-8. Oxc and `tsrs` formatting, linting, tests, documentation, and relevant benchmarks pass.
+8. the matching playground preview shows the recovered tree, diagnostics, and surviving bindings;
+9. Oxc, the playground, and `tsrs` formatting, linting, tests, documentation, and relevant
+   benchmarks pass.
 
 ## Performance checks
 

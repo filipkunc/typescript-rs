@@ -50,6 +50,14 @@ diagnostic so partially typed editor input is easier to compare.
 
 ## Try it
 
+Clone with the pinned Oxc fork submodule, or initialize it in an existing checkout:
+
+```console
+git clone --recurse-submodules https://github.com/filipkunc/typescript-rs.git
+# Existing checkout:
+git submodule update --init --recursive
+```
+
 ```console
 cargo run --bin tsrs -- example.ts
 cargo test
@@ -58,6 +66,33 @@ cargo bench
 
 The CLI accepts `.ts`, `.tsx`, `.mts`, `.cts`, and JavaScript extensions understood by
 Oxc. It exits with status 1 when diagnostics are emitted.
+
+## Oxc playground
+
+The pinned [Oxc playground](https://github.com/filipkunc/playground) is available at
+`vendor/oxc-playground` and builds against this repository's exact `vendor/oxc` revision. It
+provides Monaco source editing, AST exploration, diagnostics, scopes, symbols, and control-flow
+visualization without using a published Oxc package.
+The sidebar displays `fork @<sha>` from the linked checkout and points to the corresponding
+`filipkunc/oxc` commit, making the parser implementation under review explicit.
+
+With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
+
+```console
+# One-time dependency installation and WASM/frontend build
+./scripts/oxc-playground setup
+
+# Start the local preview and open the printed URL
+./scripts/oxc-playground serve
+
+# Rebuild after changing the Oxc fork or playground frontend
+./scripts/oxc-playground rebuild
+```
+
+The setup build may take several minutes. Subsequent source editing in Monaco is immediate;
+`rebuild` is needed only after changing Rust or frontend implementation. The launcher restores the
+generated browser loader after bundling so building the playground does not leave `vendor/oxc`
+dirty.
 
 ## Language server
 
@@ -151,8 +186,12 @@ strict, ESNext target/module/library, no-emit profile. A mismatch is evidence to
 or checker; blessing the local `.errors` baseline does not resolve it. Update
 `tests/tsgo-reference.txt` only as an explicit, reviewed reference-version change.
 
-See [Goals.md](Goals.md), [architecture](docs/architecture.md), and
-[bootstrap research](docs/bootstrap-research.md) for scope and design rationale.
+See [Goals.md](Goals.md), [architecture](docs/architecture.md),
+[bootstrap research](docs/bootstrap-research.md), and the
+[Oxc editor-recovery plan](docs/oxc-editor-recovery-plan.md) for scope and design rationale. The
+[first fork change](docs/oxc-first-editor-recovery-change.md) defines the initial missing-expression
+AST slice, and the [recovery playground](docs/oxc-recovery-playground.md) defines its visual review
+workflow.
 
 ## License
 
