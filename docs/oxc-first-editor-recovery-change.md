@@ -103,7 +103,14 @@ support for recovered nodes in Oxc's batch consumers in this PR.
 
 ## Tests and acceptance criteria
 
-Add focused Oxc parser/API fixtures for:
+The test layers are additive. The existing Oxc corpus is the regression net for normal parsing,
+but it cannot prove an opt-in editor-mode contract that the corpus does not invoke. Conversely,
+focused unit tests make the new behavior reviewable and debuggable, but cannot replace Oxc's
+Test262, Babel, and TypeScript coverage. The fork change does not advance until both layers pass.
+
+### Focused Rust tests
+
+Add individually runnable parser API tests for:
 
 ```ts
 let value =
@@ -112,23 +119,72 @@ const first =, second = 2;
 function f() { const local = }
 ```
 
-For each source, assert the exact zero-width missing span and deterministic diagnostic location.
-For the corresponding valid source, assert unchanged AST and diagnostics in both modes. Also assert:
+These tests belong at the public `Parser`/`ParseOptions` boundary because they exercise behavior
+that Oxc's normal-mode conformance runner cannot select. Give each boundary and behavior an
+explicit test name rather than hiding the cases in one snapshot. For every source, parse in both
+`Normal` and `Editor` modes and assert the observable result directly:
 
 - normal mode still reports `panicked = true` and returns an empty program for the incomplete case;
 - editor mode reports `panicked = false` and retains the surrounding declaration structure;
+- the initializer is exactly one `MissingExpression` with the expected zero-width insertion span;
+- the boundary token is left for its owning declaration, statement, or block parser;
+- exactly one parser diagnostic is emitted at the expected location;
+- a second parse produces the same AST shape, spans, status, and diagnostics;
+- corresponding valid input has the same AST and diagnostics in both modes.
+
+Add AST/visitor unit tests which construct the node without involving parser recovery and assert:
+
 - generated `Visit` and `VisitMut` traversals complete without panic;
+- both visitors enter and leave the missing node exactly once;
+- its span is empty and `size_of::<Expression>()` remains 16 bytes.
+
+Add semantic integration tests which parse a recovered program and assert:
+
 - semantic construction creates no reference for `MissingExpression` and still binds later and
   enclosing valid declarations;
 - every AST span is ordered and within the source range;
-- the parser makes progress for comma, semicolon, closing-brace, and EOF boundaries;
-- `size_of::<Expression>()` remains unchanged;
-- normal-mode parser benchmarks show no meaningful regression.
+- semantic traversal and syntax checking complete without panic.
 
-Run focused parser and semantic tests while iterating, then Oxc's required formatting, generated
-file, workspace, conformance, allocation, and benchmark checks. Only after those pass should `tsrs`
-advance the submodule gitlink and add integration cases proving that `intact` still receives its
-type diagnostic while `broken` produces no dependent type cascade.
+Finally, add a table-driven progress test for comma, semicolon, closing-brace, and EOF boundaries.
+Include repeated adjacent failures so the test proves that every recovery step either consumes a
+token or returns to an enclosing list. A timeout alone is not an adequate progress assertion.
+
+Prefer structural assertions for the small contract above. Snapshots may supplement diagnostics,
+but must not be the only proof of node kind, span, parser status, or surviving bindings.
+
+### Existing Oxc regression suites
+
+Run the following gates from the Oxc checkout for every candidate fork commit:
+
+1. Run `just ast` and review the generated AST, builder, derive, and visitor diff; generated files
+   must be reproducible and must not be hand-edited.
+2. Run focused crate tests while iterating, then `just test` for the full Rust test suite.
+3. Run `cargo coverage -- parser` so Test262, Babel, and TypeScript parser conformance all retain
+   their existing normal-mode results. Any snapshot change must be explained; the expected result
+   for this opt-in first slice is no normal-mode change.
+4. Run the semantic conformance and integration tests after adding the new semantic case.
+5. Run `just allocs`, normal-mode parser benchmarks, and editor-mode benchmarks on valid and
+   representative incomplete input. Normal valid parsing must show no meaningful regression.
+6. Run `just ready` as the final Oxc pre-push gate and require the fork's CI to pass.
+
+Do not add duplicate normal-mode syntax fixtures when Test262, Babel, or TypeScript already covers
+the grammar. Add a local Oxc coverage fixture only for a syntax regression absent from those
+suites. The new Rust API tests remain required because external suites do not enable editor mode
+or inspect its recovery representation.
+
+Mutation coverage follows the deterministic first slice: delete or replace tokens around `=`,
+commas, semicolons, braces, and EOF; assert no panic and the progress invariant; reduce every
+failure into a named permanent test. This can start as a bounded table-driven test and grow into a
+fuzz target once the recovery contexts expand.
+
+### `tsrs` integration gate
+
+Only after all Oxc gates pass should `tsrs` advance the submodule gitlink. Add a named conformance
+fixture and exact `.errors` sidecar proving that `intact` still receives its type diagnostic while
+`broken` produces no dependent type cascade. Add an LSP edit-sequence test which observes the
+incomplete state and then completion of the initializer. The existing `tsrs` conformance suite and
+the repository's full formatting, lint, test, rustdoc, and relevant benchmark gates must remain
+green.
 
 ## Follow-up
 

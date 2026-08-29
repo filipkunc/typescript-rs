@@ -230,6 +230,16 @@ The probe design must not turn normal tests into a network dependency.
 
 ### Oxc fork tests
 
+Testing has two mandatory, complementary layers. Focused Rust unit/API tests define editor-mode
+behavior and make failures individually runnable. Oxc's existing Test262, Babel, and TypeScript
+conformance suites protect normal-mode behavior across the full grammar. Neither layer substitutes
+for the other, and a fork revision must pass both before `tsrs` advances its submodule pin.
+
+Use Rust tests for contracts the external suites cannot observe: parse-mode selection, recovery
+node kind and span, lexer progress, visitor events, semantic identities, and surviving bindings.
+Use the existing conformance harness for syntax acceptance and diagnostic regressions; do not
+duplicate a normal-mode case in local fixtures when an external suite already covers it.
+
 Every recovery fixture must assert:
 
 - termination and lexer progress;
@@ -243,6 +253,12 @@ Every recovery fixture must assert:
 
 Fuzz and mutation tests should delete, duplicate, or replace tokens around delimiters and list
 boundaries. Failures should be reduced into permanent focused fixtures.
+
+The required fork gates are generated-code review with `just ast`, focused crate tests, the full
+Rust suite with `just test`, parser conformance with `cargo coverage -- parser`, applicable semantic
+conformance, allocation snapshots with `just allocs`, normal/editor parser benchmarks, `just ready`,
+and fork CI. Unexpected normal-mode conformance or snapshot changes block the revision until they
+are explained and reviewed.
 
 ### `tsrs` integration tests
 
