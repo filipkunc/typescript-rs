@@ -21,7 +21,9 @@ The Oxc source baseline is pinned as the `vendor/oxc` Git submodule so editor-re
 the AST, parser, generated visitors, and semantic builder can be developed and tested together.
 Cargo resolves every Oxc crate from that checkout; normal parser behavior remains the baseline
 and the first opt-in recovery slice described in the [recovery plan](oxc-editor-recovery-plan.md)
-preserves a missing variable initializer as `MissingExpression`. Exact fork and upstream revisions
+preserves a missing variable initializer as `MissingExpression`. `check_source` opts into that mode,
+keeps the syntax diagnostic, and checks independent declarations in the recovered program while
+treating the missing expression as having no trustworthy type. Exact fork and upstream revisions
 are recorded in the [compatibility note](oxc-fork.md).
 
 `check_source` currently runs all stages serially for one file. A future `Program` should
@@ -88,7 +90,9 @@ project model. A Tokio stdio server built on `tower-lsp-server` owns full text s
 numbers only for documents opened by the client. On open and change it invokes the existing
 `check_source` boundary and publishes owned diagnostics; on close it removes the snapshot and
 clears diagnostics. Requests are handled sequentially for now so an older check cannot publish
-after a newer document version.
+after a newer document version. For the first supported recovery shape, a missing variable
+initializer no longer hides later type diagnostics, and completing the initializer removes its
+syntax diagnostic on the next full-document check.
 
 The LSP adapter is binary-only frontend code. It translates UTF-8 byte ranges to UTF-16 line and
 character positions and does not move Oxc arenas, AST nodes, scopes, or references across checks.

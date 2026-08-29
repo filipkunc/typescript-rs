@@ -174,3 +174,83 @@ fn publishes_diagnostics_for_live_document_snapshots() {
     }));
     assert!(server.child.wait().expect("wait for LSP exit").success());
 }
+
+#[test]
+fn checks_intact_code_while_a_variable_initializer_is_missing() {
+    let mut server = LspProcess::start();
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "processId": null,
+            "rootUri": null,
+            "capabilities": {}
+        }
+    }));
+    assert_eq!(server.receive()["id"], 1);
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "initialized",
+        "params": {}
+    }));
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {
+                "uri": "file:///workspace/recovery.ts",
+                "languageId": "typescript",
+                "version": 1,
+                "text": "const broken: number = ;\nconst intact: number = \"wrong\";"
+            }
+        }
+    }));
+
+    let recovered = server.receive();
+    assert_eq!(recovered["params"]["version"], 1);
+    assert_eq!(
+        recovered["params"]["diagnostics"]
+            .as_array()
+            .expect("diagnostics array")
+            .iter()
+            .map(|diagnostic| diagnostic["code"].as_str().expect("diagnostic code"))
+            .collect::<Vec<_>>(),
+        ["TS1109", "TS2322"]
+    );
+
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didChange",
+        "params": {
+            "textDocument": {
+                "uri": "file:///workspace/recovery.ts",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": "const broken: number = 1;\nconst intact: number = \"wrong\";"
+            }]
+        }
+    }));
+    let completed = server.receive();
+    assert_eq!(completed["params"]["version"], 2);
+    assert_eq!(
+        completed["params"]["diagnostics"].as_array().map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(completed["params"]["diagnostics"][0]["code"], "TS2322");
+
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "shutdown",
+        "params": null
+    }));
+    assert_eq!(server.receive()["id"], 2);
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "exit",
+        "params": null
+    }));
+    assert!(server.child.wait().expect("wait for LSP exit").success());
+}

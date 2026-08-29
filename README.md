@@ -48,6 +48,13 @@ remain outside this slice. For common incomplete-expression input, the diagnosti
 turns Oxc's generic fatal parse error into the corresponding TypeScript `TS1109` or `TS1128`
 diagnostic so partially typed editor input is easier to compare.
 
+The first **editor-recovery** integration opts the single-file checker into the pinned Oxc fork's
+editor mode. A variable initializer missing after `=` is retained as a zero-width
+`MissingExpression` at a safe comma, semicolon, closing-brace, or EOF boundary. `tsrs` reports the
+syntax error without assigning a type to that node and continues checking independent later code.
+Other missing expressions and malformed syntax still follow Oxc's existing behavior until their
+grammar areas receive focused recovery support.
+
 ## Try it
 
 Clone with the pinned Oxc fork submodule, or initialize it in an existing checkout:
@@ -99,7 +106,10 @@ dirty.
 `tsrs --lsp` starts a Language Server Protocol server over stdio. The initial LSP milestone
 keeps full snapshots of open documents and publishes parser, binder, and checker diagnostics on
 open and after every change. Diagnostics are cleared when a document becomes valid or is closed.
-The adapter converts the checker's UTF-8 byte ranges to the protocol's UTF-16 positions.
+The adapter converts the checker's UTF-8 byte ranges to the protocol's UTF-16 positions. In the
+first supported recovery shape, a missing variable initializer no longer hides type diagnostics in
+later declarations, and completing the initializer removes the syntax diagnostic on the next
+full-document change.
 
 This is intentionally a live single-document view of the checker. It does not yet load
 `tsconfig.json`, discover unopened files, resolve imports, or provide hover, completion, navigation,
