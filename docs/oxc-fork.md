@@ -12,14 +12,14 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Recovery branch: `feat/editor-missing-expression`
 - Baseline recovery PR (merged): <https://github.com/filipkunc/oxc/pull/1>
 - Complete recovery integration PR: <https://github.com/filipkunc/oxc/pull/2>
-- Pinned fork revision: `87e11609811a6c6dc669bf5ea9c2c8d7133a6297`
+- Pinned fork revision: `795610b4e40afe4fd1dde5f6d6f2a98190b7b499`
 - Fork `main` integrated before merge: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
 - Playground fork: <https://github.com/filipkunc/playground>
 - Playground branch: `feat/editor-recovery-playground`
 - Baseline playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
 - Complete playground integration PR: <https://github.com/filipkunc/playground/pull/2>
-- Pinned playground revision: `dd0d465094c29c1e9fab6362da062f6effbf5fa7`
+- Pinned playground revision: `149c54a6b1161a462300ffbde84c5c3ab66f0eb4`
 - Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and
   `check_source` opting into `ParseMode::Editor`; the public checker API is unchanged
 

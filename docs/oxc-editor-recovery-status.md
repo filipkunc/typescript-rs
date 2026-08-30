@@ -51,12 +51,13 @@ documented in
   slice adds `MissingType` for annotation, alias, union-constituent, and object-property positions,
   plus safe missing `]`, `)`, and `>` recovery. Focused parser, semantic, inspection, conformance,
   LSP, benchmark, documentation, and named-playground-example coverage exists; the pinned
-  differential matches all parser diagnostics exactly. Full gates pass; exact pin updates remain.
+  differential matches all parser diagnostics exactly. Full gates pass; the exact pin updates were
+  completed with the final Stage 5 publication below.
 - [x] Add source-backed malformed-expression representation and cascade policy where
   required. The local slice adds non-empty `MalformedExpression` nodes for `:` and `...` in
   source/block initializer and assignment slots, plus checker suppression and focused parser,
   semantic, inspection, conformance, LSP, benchmark, documentation, and playground coverage. Full
-  gates pass; exact pin updates remain.
+  gates pass; the exact pin updates were completed with the final Stage 5 publication below.
 - [x] Preserve a statement-position variable declaration missing its name without inventing a
   declarator or binding; exact TS1134 diagnostics and the following statement survive.
 
@@ -116,7 +117,7 @@ parity set; `editor_recovery_function_interface_edits`; and the `function-interf
 playground example. Oxc generation, formatting, strict affected-package Clippy, parser/semantic/
 inspection tests, allocation snapshots, full `tsrs` validation, Criterion, the fresh WASM build,
 frontend formatting/unit/type/lint/production-build gates, and the headless browser smoke pass.
-Exact fork and playground pin updates remain pending.
+The exact fork and playground pin updates were completed with the final Stage 5 publication below.
 
 ## Stage 4: classes
 
@@ -134,7 +135,8 @@ allocation snapshots, full `tsrs` validation and rustdoc, the pinned checker dif
 Criterion, fresh WASM/frontend gates, and the headless browser smoke pass. The performance pass
 keeps `TypeKind` compact, moves class/member maps behind one lazy state allocation, and consolidates
 top-level declaration discovery; repeated focused runs leave primitive/object/array paths unchanged
-within Criterion's noise threshold. Exact fork/playground pin updates remain pending.
+within Criterion's noise threshold. The exact fork/playground pin updates were completed with the
+final Stage 5 publication below.
 
 ## Stage 5: broader parity and upstreaming
 
@@ -163,9 +165,9 @@ editor-incomplete parsing. The authorized fork integration and exact pin work is
 original Stage 5 remains open only for submission to the original projects and post-adoption
 reevaluation, both outside the authorized publication scope.
 
-The fork integration is published as `filipkunc/oxc@87e11609811a6c6dc669bf5ea9c2c8d7133a6297`
+The fork integration is published as `filipkunc/oxc@795610b4e40afe4fd1dde5f6d6f2a98190b7b499`
 in [PR 2](https://github.com/filipkunc/oxc/pull/2), and the UI as
-`filipkunc/playground@dd0d465094c29c1e9fab6362da062f6effbf5fa7` in
+`filipkunc/playground@149c54a6b1161a462300ffbde84c5c3ab66f0eb4` in
 [PR 2](https://github.com/filipkunc/playground/pull/2). Original `oxc-project` submissions are
 outside the authorized publication scope, so the corresponding original-plan items remain open.
 
