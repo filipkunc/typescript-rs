@@ -1,0 +1,52 @@
+{
+  "name": "tsrs-playground",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "index.js",
+    "tsrs.wasi-browser.js",
+    "tsrs.wasi.cjs",
+    "tsrs.wasi.d.cts",
+    "tsrs.wasm32-wasi.wasm",
+    "wasi-worker-browser.mjs",
+    "wasi-worker.mjs"
+  ],
+  "type": "module",
+  "types": "./tsrs.wasi.d.cts",
+  "exports": {
+    ".": {
+      "types": "./tsrs.wasi.d.cts",
+      "browser": "./tsrs.wasi-browser.js",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --esm --target wasm32-wasip1-threads --dts tsrs.wasi.d.cts --release",
+    "build:debug": "napi build --platform --esm --target wasm32-wasip1-threads --dts tsrs.wasi.d.cts",
+    "test:wasm": "node scripts/check-wasm.mjs"
+  },
+  "dependencies": {
+    "@napi-rs/wasm-runtime": "1.2.3"
+  },
+  "devDependencies": {
+    "@emnapi/core": "2.0.0-alpha.3",
+    "@emnapi/runtime": "2.0.0-alpha.3",
+    "@napi-rs/cli": "3.8.6",
+    "emnapi": "2.0.0-alpha.3"
+  },
+  "napi": {
+    "binaryName": "tsrs",
+    "packageName": "@tsrs-playground/binding",
+    "targets": [
+      "wasm32-wasip1-threads"
+    ],
+    "wasm": {
+      "browser": {
+        "fs": false,
+        "asyncInit": true
+      }
+    }
+  },
+  "packageManager": "pnpm@11.9.0"
+}

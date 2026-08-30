@@ -1,0 +1,24 @@
+[package]
+name = "tsrs_playground_napi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+description = "Browser adapter for the tsrs playground"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+doctest = false
+
+[dependencies]
+napi = "3"
+napi-derive = "3"
+typescript-rs = { path = "../.." }
+
+[build-dependencies]
+napi-build = "2"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

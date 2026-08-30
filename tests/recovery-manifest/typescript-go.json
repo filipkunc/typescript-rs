@@ -641,6 +641,133 @@
       ]
     },
     {
+      "id": "missing_initializer_before_newline_declaration",
+      "source": "const broken =\nconst intact: number = \"wrong\";\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 14,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 14,
+          "end": 46,
+          "names": [
+            "intact"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "intact"
+      ],
+      "bindingNames": [
+        "broken",
+        "intact"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 15,
+          "end": 20,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 14,
+          "end": 14,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_initializer_before_same_line_declaration",
+      "source": "const broken = const intact: number = \"wrong\";\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 14,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 14,
+          "end": 46,
+          "names": [
+            "intact"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "intact"
+      ],
+      "bindingNames": [
+        "broken",
+        "intact"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 15,
+          "end": 20,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "VariableStatement",
+          "start": 0,
+          "end": 14,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        },
+        {
+          "kind": "VariableDeclarationList",
+          "start": 0,
+          "end": 14,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 14,
+          "end": 14,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration"
+          ]
+        }
+      ]
+    },
+    {
       "id": "missing_interface_closer",
       "source": "interface Box {\n  value: number;\n",
       "topLevel": [

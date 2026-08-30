@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 oxc_dir="${repo_root}/vendor/oxc"
 playground_dir="${repo_root}/vendor/oxc-playground"
+tsrs_playground_dir="${repo_root}/napi/playground"
 browser_loader="${oxc_dir}/napi/playground/playground.wasi-browser.js"
 browser_loader_backup=""
 
@@ -26,30 +27,41 @@ require_command() {
 }
 
 check_submodules() {
-  if [[ ! -f "${oxc_dir}/Cargo.toml" || ! -f "${playground_dir}/package.json" ]]; then
+  if [[ ! -f "${oxc_dir}/Cargo.toml" || ! -f "${playground_dir}/package.json" || ! -f "${tsrs_playground_dir}/package.json" ]]; then
     echo "Initialize the playground submodules first:" >&2
     echo "  git submodule update --init --recursive" >&2
     exit 1
   fi
 }
 
-ensure_wasm_target() {
+ensure_wasm_target_for() {
   require_command rustup
 
   (
-    cd "${oxc_dir}"
+    cd "$1"
     if ! rustup target list --installed | grep -qx "wasm32-wasip1-threads"; then
       rustup target add wasm32-wasip1-threads
     fi
   )
 }
 
+ensure_wasm_targets() {
+  # The pinned Oxc and tsrs checkouts intentionally use different Rust toolchains. Targets are
+  # installed per toolchain, so prepare both before building their respective WASM packages.
+  ensure_wasm_target_for "${oxc_dir}"
+  ensure_wasm_target_for "${repo_root}"
+}
+
 install_dependencies() {
   require_command pnpm
-  ensure_wasm_target
+  ensure_wasm_targets
 
   (
     cd "${oxc_dir}"
+    pnpm install --frozen-lockfile
+  )
+  (
+    cd "${tsrs_playground_dir}"
     pnpm install --frozen-lockfile
   )
   (
@@ -61,9 +73,9 @@ install_dependencies() {
 build_playground() {
   require_command node
   require_command pnpm
-  ensure_wasm_target
+  ensure_wasm_targets
 
-  if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
+  if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${tsrs_playground_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
     install_dependencies
   fi
 
@@ -77,6 +89,10 @@ build_playground() {
     cd "${oxc_dir}/napi/playground"
     pnpm run build-wasm-dev --release
     node scripts/patch.js
+  )
+  (
+    cd "${tsrs_playground_dir}"
+    pnpm build
   )
   (
     cd "${playground_dir}"

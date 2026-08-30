@@ -23,17 +23,18 @@ Oxc's `MissingExpression`, `MissingType`, `MalformedExpression`, and recovery me
 
 ## Current corpus
 
-The 25-case corpus contains the eight completed Stage 2 areas: missing initializer, assignment RHS,
+The 27-case corpus contains the eight completed Stage 2 areas: missing initializer, assignment RHS,
 object value, array operand, call argument, list delimiters, type syntax, and source-backed malformed
 expression. It also covers the implemented Stage 3 function and interface edits: parameter slots,
 delimiters, and types; function-body closers; return operands and types; interface member types,
 separators, and closers; and static or optional member names. Stage 4 adds class-member separators
 and class-body closers.
 
-All 25 cases participate in exact Oxc parity. The final Stage 5 additions cover a missing call
+All 27 cases participate in exact Oxc parity. The final Stage 5 additions cover a missing call
 closer owned by a following declaration and a missing variable declaration name. The latter uses an
 empty declarator list plus owned recovery metadata, so no placeholder identifier or binding is
-invented.
+invented. The active-context additions cover a missing initializer before a following declaration,
+both across a newline and on the same line.
 
 ## Regeneration
 

@@ -125,7 +125,7 @@ maintainers' preference should decide between them.
 > recovery metadata. Recovery nodes are semantically inert, valid input has normal/editor AST
 > equivalence tests, and every recovery boundary has deterministic-progress/span tests.
 >
-> Current evidence: exact parity on a checked 25-case TypeScript-Go recovery manifest, a 12-case
+> Current evidence: exact parity on a checked 27-case TypeScript-Go recovery manifest, a 12-case
 > deletion matrix, and a seven-version 30+ KiB LSP trace that preserves type diagnostics before and
 > after each incomplete edit. Full parse-bind-check of that source is about 0.70 ms locally; the
 > recovered-property version is about 0.75 ms. I also found a limitation: deleting `)` around a

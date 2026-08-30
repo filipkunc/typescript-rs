@@ -14,6 +14,8 @@ oxc_diagnostics = { version = "0.147.0", path = "vendor/oxc/crates/oxc_diagnosti
 oxc_parser = { version = "0.147.0", path = "vendor/oxc/crates/oxc_parser" }
 oxc_semantic = { version = "0.147.0", path = "vendor/oxc/crates/oxc_semantic" }
 oxc_span = { version = "0.147.0", path = "vendor/oxc/crates/oxc_span" }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 tokio = { version = "1", features = ["io-std", "rt-multi-thread"] }
 tower-lsp-server = "0.23.0"
 

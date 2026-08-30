@@ -16,8 +16,8 @@ gates listed at the end.
 
 Evidence: [`oxc-fork.md`](oxc-fork.md),
 [`oxc-first-editor-recovery-change.md`](oxc-first-editor-recovery-change.md), and
-[`oxc-recovery-playground.md`](oxc-recovery-playground.md). The manifest schema, 25-case corpus with
-all 25 parity cases, checked-in probe, explicit generator, and offline Oxc parity tests are
+[`oxc-recovery-playground.md`](oxc-recovery-playground.md). The manifest schema, 27-case corpus,
+checked-in probe, explicit generator, and offline Oxc parity tests are
 documented in
 [`oxc-recovery-manifest.md`](oxc-recovery-manifest.md).
 
@@ -29,7 +29,7 @@ documented in
 - [x] Preserve a recovered program for the implemented initializer, assignment, and object-value
   slices.
 - [x] Add recovery-context tracking and progress invariants for every implemented source, block,
-  object, array, argument, parameter, type, interface, and class list owner.
+  variable-declaration, object, array, argument, parameter, type, interface, and class list owner.
 - [x] Add span, visitor, semantic-safety, determinism, and valid-input tests, including the Stage 5
   deletion matrix over twelve independently derived edit states.
 - [x] Expose an owned parse-only recovery inspection response with mode/status, structural tree,
@@ -41,6 +41,9 @@ documented in
 ## Stage 2: current checker grammar
 
 - [x] Recover missing variable initializers at comma, semicolon, closing-brace, and EOF boundaries.
+- [x] Recover a missing initializer before an unambiguous following `const` or `var` by querying
+  active variable-declaration and source/block contexts; preserve the next statement with or
+  without a newline.
 - [x] Recover missing assignment right-hand sides for the bounded source/block semicolon,
   closing-brace, and EOF contexts.
 - [x] Recover the bounded array-element operands and delimiters while preserving ordinary elisions.
@@ -154,7 +157,7 @@ final Stage 5 publication below.
 - [ ] Reevaluate the fork after upstream adoption and retire it only when upstream supplies every
   recovery representation and semantic guarantee on which `tsrs` depends.
 
-Evidence: [`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md), exact 25/25 offline manifest
+Evidence: [`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md), exact 27/27 offline manifest
 parity, `editor_mode_deletion_mutation_matrix_is_deterministic_and_bounded`,
 `publishes_deterministic_diagnostics_across_deletion_and_repair_sequence`, the two new conformance
 fixtures, focused semantic and NAPI inspection tests, the `stage-five-deletion-recovery` playground
@@ -165,11 +168,11 @@ editor-incomplete parsing. The authorized fork integration and exact pin work is
 original Stage 5 remains open only for submission to the original projects and post-adoption
 reevaluation, both outside the authorized publication scope.
 
-The fork integration is published as `filipkunc/oxc@795610b4e40afe4fd1dde5f6d6f2a98190b7b499`
-in [PR 2](https://github.com/filipkunc/oxc/pull/2), and the UI as
-`filipkunc/playground@149c54a6b1161a462300ffbde84c5c3ab66f0eb4` in
-[PR 2](https://github.com/filipkunc/playground/pull/2). Original `oxc-project` submissions are
-outside the authorized publication scope, so the corresponding original-plan items remain open.
+The current integration is published as
+`filipkunc/oxc@a2d89696356a5893bd2c0c49ad938088fad1819e` and the UI as
+`filipkunc/playground@fe4bb0e161948fa15df6e34ac1df25a51ab06f26`. They build on the recovery
+baselines merged in each fork's PR 2. Original `oxc-project` submissions are outside the authorized
+publication scope, so the corresponding original-plan items remain open.
 
 ## Release and completion gates
 
