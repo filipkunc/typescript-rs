@@ -43,6 +43,7 @@ pub fn check_source(file_name: &str, source_text: &str) -> CheckResult {
             ..ParseOptions::default()
         })
         .parse();
+    let has_parser_recovery = !parsed.recoveries.is_empty();
     let mut result = CheckResult::default();
     result.extend_parse_diagnostics(parsed.diagnostics, source_text);
 
@@ -50,15 +51,18 @@ pub fn check_source(file_name: &str, source_text: &str) -> CheckResult {
         return result;
     }
 
-    let contains_recovery = !result.is_ok() && contains_editor_recovery(&parsed.program);
+    let contains_recovery =
+        !result.is_ok() && (has_parser_recovery || contains_editor_recovery(&parsed.program));
     let semantic = SemanticBuilder::new_compiler().build(&parsed.program);
     let can_check = semantic.diagnostics.is_empty() && (result.is_ok() || contains_recovery);
     result.extend_oxc(semantic.diagnostics, Phase::Bind);
 
     if can_check {
-        result
-            .diagnostics
-            .extend(checker::check(&parsed.program, semantic.semantic.scoping()));
+        result.diagnostics.extend(checker::check(
+            &parsed.program,
+            semantic.semantic.scoping(),
+            &parsed.recoveries,
+        ));
     }
 
     result
@@ -71,7 +75,13 @@ struct RecoveryFinder {
 
 impl<'a> Visit<'a> for RecoveryFinder {
     fn enter_node(&mut self, kind: AstKind<'a>) {
-        self.found |= matches!(kind, AstKind::MissingExpression(_));
+        self.found |= matches!(
+            kind,
+            AstKind::MissingExpression(_)
+                | AstKind::MalformedExpression(_)
+                | AstKind::MissingMemberExpression(_)
+                | AstKind::MissingType(_)
+        );
     }
 }
 

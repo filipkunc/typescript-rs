@@ -4,19 +4,24 @@ use std::{
 };
 
 use oxc_ast::ast::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentTarget,
-    BindingPattern, CallExpression, Declaration, ExportDefaultDeclarationKind, Expression,
-    Function, FunctionType, IdentifierReference, ObjectExpression, ObjectPropertyKind, Program,
-    ReturnStatement, Statement, TSInterfaceDeclaration, TSLiteral, TSSignature, TSType, TSTypeName,
-    UnaryOperator, VariableDeclarator,
+    Argument, ArrayExpression, ArrayExpressionElement, ArrowFunctionExpression,
+    AssignmentExpression, AssignmentTarget, BindingPattern, CallExpression, Class, ClassElement,
+    ClassType, Declaration, ExportDefaultDeclarationKind, Expression, FormalParameters, Function,
+    FunctionType, IdentifierReference, MethodDefinition, MethodDefinitionKind, NewExpression,
+    ObjectExpression, ObjectPropertyKind, Program, PropertyDefinition, PropertyDefinitionType,
+    ReturnStatement, Statement, StaticMemberExpression, TSAccessibility, TSInterfaceDeclaration,
+    TSLiteral, TSMethodSignatureKind, TSSignature, TSType, TSTypeName, UnaryOperator,
+    VariableDeclarator,
 };
 use oxc_ast_visit::{
     Visit,
     walk::{
         walk_arrow_function_expression, walk_assignment_expression, walk_call_expression,
-        walk_function, walk_return_statement, walk_variable_declarator,
+        walk_function, walk_new_expression, walk_property_definition, walk_return_statement,
+        walk_static_member_expression, walk_variable_declarator,
     },
 };
+use oxc_parser::RecoveryEvent;
 use oxc_semantic::{ScopeFlags, Scoping, SymbolId};
 use oxc_span::GetSpan;
 
@@ -27,32 +32,53 @@ use crate::{
     types::{NumberLiteral, ObjectTypeProperty, TypeId, TypeKind, TypeStore},
 };
 
-pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<Diagnostic> {
+pub(crate) fn check<'a>(
+    program: &'a Program<'a>,
+    scoping: &'a Scoping,
+    recoveries: &[RecoveryEvent],
+) -> Vec<Diagnostic> {
     let mut aliases = HashMap::new();
     let mut interfaces = HashMap::new();
     let mut functions = Vec::new();
+    let mut classes = Vec::new();
     for statement in &program.body {
-        if let Statement::TSTypeAliasDeclaration(alias) = statement
-            && alias.type_parameters.is_none()
-        {
-            aliases.insert(alias.id.name.as_str(), &alias.type_annotation);
-        }
-        if let Some(interface) = top_level_interface(statement)
-            && interface.type_parameters.is_none()
-            && interface.extends.is_empty()
-            && interface
-                .id
-                .symbol_id
-                .get()
-                .is_some_and(|symbol| scoping.symbol_redeclarations(symbol).is_empty())
-        {
-            interfaces.insert(interface.id.name.as_str(), interface);
-        }
-        if let Some(function) = top_level_function(statement) {
-            functions.push(function);
+        match checker_declaration(statement) {
+            Some(CheckerDeclaration::Alias(name, annotation)) => {
+                aliases.insert(name, annotation);
+            }
+            Some(CheckerDeclaration::Interface(interface))
+                if interface.type_parameters.is_none()
+                    && interface.extends.is_empty()
+                    && interface
+                        .id
+                        .symbol_id
+                        .get()
+                        .is_some_and(|symbol| scoping.symbol_redeclarations(symbol).is_empty()) =>
+            {
+                interfaces.insert(interface.id.name.as_str(), interface);
+            }
+            Some(CheckerDeclaration::Function(function)) => functions.push(function),
+            Some(CheckerDeclaration::Class(class)) => classes.push(class),
+            Some(CheckerDeclaration::Interface(_)) | None => {}
         }
     }
-    let mut checker = Checker::new(program.source_text, aliases, interfaces, scoping);
+    let mut checker = Checker::new(
+        program.source_text,
+        aliases,
+        interfaces,
+        scoping,
+        recoveries,
+    );
+    for class in classes {
+        if class
+            .id
+            .as_ref()
+            .and_then(|id| id.symbol_id.get())
+            .is_some_and(|symbol| scoping.symbol_redeclarations(symbol).is_empty())
+        {
+            checker.register_class(class);
+        }
+    }
     for function in functions {
         if function
             .id
@@ -67,30 +93,43 @@ pub(crate) fn check<'a>(program: &'a Program<'a>, scoping: &'a Scoping) -> Vec<D
     checker.diagnostics
 }
 
-fn top_level_interface<'a>(statement: &'a Statement<'a>) -> Option<&'a TSInterfaceDeclaration<'a>> {
-    match statement {
-        Statement::TSInterfaceDeclaration(interface) => Some(interface),
-        Statement::ExportDeclaration(export) => match &export.declaration {
-            Declaration::TSInterfaceDeclaration(interface) => Some(interface),
-            _ => None,
-        },
-        Statement::ExportDefaultDeclaration(export) => match &export.declaration {
-            ExportDefaultDeclarationKind::TSInterfaceDeclaration(interface) => Some(interface),
-            _ => None,
-        },
-        _ => None,
-    }
+enum CheckerDeclaration<'a> {
+    Alias(&'a str, &'a TSType<'a>),
+    Interface(&'a TSInterfaceDeclaration<'a>),
+    Function(&'a Function<'a>),
+    Class(&'a Class<'a>),
 }
 
-fn top_level_function<'a>(statement: &'a Statement<'a>) -> Option<&'a Function<'a>> {
+fn checker_declaration<'a>(statement: &'a Statement<'a>) -> Option<CheckerDeclaration<'a>> {
     match statement {
-        Statement::FunctionDeclaration(function) => Some(function),
+        Statement::TSTypeAliasDeclaration(alias) if alias.type_parameters.is_none() => Some(
+            CheckerDeclaration::Alias(alias.id.name.as_str(), &alias.type_annotation),
+        ),
+        Statement::TSInterfaceDeclaration(interface) => {
+            Some(CheckerDeclaration::Interface(interface))
+        }
+        Statement::FunctionDeclaration(function) => Some(CheckerDeclaration::Function(function)),
+        Statement::ClassDeclaration(class) => Some(CheckerDeclaration::Class(class)),
         Statement::ExportDeclaration(export) => match &export.declaration {
-            Declaration::FunctionDeclaration(function) => Some(function),
+            Declaration::TSInterfaceDeclaration(interface) => {
+                Some(CheckerDeclaration::Interface(interface))
+            }
+            Declaration::FunctionDeclaration(function) => {
+                Some(CheckerDeclaration::Function(function))
+            }
+            Declaration::ClassDeclaration(class) => Some(CheckerDeclaration::Class(class)),
             _ => None,
         },
         Statement::ExportDefaultDeclaration(export) => match &export.declaration {
-            ExportDefaultDeclarationKind::FunctionDeclaration(function) => Some(function),
+            ExportDefaultDeclarationKind::TSInterfaceDeclaration(interface) => {
+                Some(CheckerDeclaration::Interface(interface))
+            }
+            ExportDefaultDeclarationKind::FunctionDeclaration(function) => {
+                Some(CheckerDeclaration::Function(function))
+            }
+            ExportDefaultDeclarationKind::ClassDeclaration(class) => {
+                Some(CheckerDeclaration::Class(class))
+            }
             _ => None,
         },
         _ => None,
@@ -100,6 +139,7 @@ fn top_level_function<'a>(statement: &'a Statement<'a>) -> Option<&'a Function<'
 struct Checker<'a> {
     source_text: &'a str,
     scoping: &'a Scoping,
+    recoveries: &'a [RecoveryEvent],
     aliases: HashMap<&'a str, &'a TSType<'a>>,
     interfaces: HashMap<&'a str, &'a TSInterfaceDeclaration<'a>>,
     resolving_named_types: HashSet<&'a str>,
@@ -108,8 +148,28 @@ struct Checker<'a> {
     relations: TypeRelations,
     signatures: SignatureStore,
     function_signatures: HashMap<SymbolId, SignatureId>,
+    member_state: Option<Box<MemberState<'a>>>,
     symbol_types: HashMap<SymbolId, TypeId>,
     current_signature: Option<SignatureId>,
+    current_this_type: Option<TypeId>,
+}
+
+struct ClassMemberTypes<'a> {
+    instance_properties: Vec<ObjectTypeProperty>,
+    static_properties: Vec<ObjectTypeProperty>,
+    method_signatures: Vec<(u32, SignatureId, bool)>,
+    constructor: Option<&'a MethodDefinition<'a>>,
+}
+
+#[derive(Default)]
+struct MemberState<'a> {
+    type_signatures: HashMap<TypeId, SignatureId>,
+    constructor_signatures: HashMap<SymbolId, SignatureId>,
+    method_contexts: HashMap<u32, (SignatureId, TypeId)>,
+    property_targets: HashMap<u32, (TypeId, &'a TSType<'a>)>,
+    class_instance_types: HashMap<&'a str, TypeId>,
+    instance_static_sides: HashMap<TypeId, (&'a str, TypeId)>,
+    type_names: HashMap<TypeId, String>,
 }
 
 impl<'a> Visit<'a> for Checker<'a> {
@@ -120,14 +180,23 @@ impl<'a> Visit<'a> for Checker<'a> {
     }
 
     fn visit_function(&mut self, function: &Function<'a>, flags: ScopeFlags) {
-        let previous = self.current_signature;
-        self.current_signature = function
+        let previous_signature = self.current_signature;
+        let previous_this_type = self.current_this_type;
+        let function_signature = function
             .id
             .as_ref()
             .and_then(|id| id.symbol_id.get())
             .and_then(|symbol| self.function_signatures.get(&symbol).copied());
+        let method_context = self
+            .member_state
+            .as_ref()
+            .and_then(|state| state.method_contexts.get(&function.span.start).copied());
+        self.current_signature =
+            function_signature.or(method_context.map(|(signature, _)| signature));
+        self.current_this_type = method_context.map(|(_, receiver)| receiver);
         walk_function(self, function, flags);
-        self.current_signature = previous;
+        self.current_signature = previous_signature;
+        self.current_this_type = previous_this_type;
     }
 
     fn visit_return_statement(&mut self, statement: &ReturnStatement<'a>) {
@@ -138,6 +207,21 @@ impl<'a> Visit<'a> for Checker<'a> {
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
         self.check_call_expression(call);
         walk_call_expression(self, call);
+    }
+
+    fn visit_new_expression(&mut self, expression: &NewExpression<'a>) {
+        self.check_new_expression(expression);
+        walk_new_expression(self, expression);
+    }
+
+    fn visit_property_definition(&mut self, property: &PropertyDefinition<'a>) {
+        self.check_property_definition(property);
+        walk_property_definition(self, property);
+    }
+
+    fn visit_static_member_expression(&mut self, member: &StaticMemberExpression<'a>) {
+        self.check_static_member_expression(member);
+        walk_static_member_expression(self, member);
     }
 
     fn visit_assignment_expression(&mut self, assignment: &AssignmentExpression<'a>) {
@@ -158,10 +242,12 @@ impl<'a> Checker<'a> {
         aliases: HashMap<&'a str, &'a TSType<'a>>,
         interfaces: HashMap<&'a str, &'a TSInterfaceDeclaration<'a>>,
         scoping: &'a Scoping,
+        recoveries: &'a [RecoveryEvent],
     ) -> Self {
         Self {
             source_text,
             scoping,
+            recoveries,
             aliases,
             interfaces,
             resolving_named_types: HashSet::new(),
@@ -170,9 +256,16 @@ impl<'a> Checker<'a> {
             relations: TypeRelations::default(),
             signatures: SignatureStore::default(),
             function_signatures: HashMap::new(),
+            member_state: None,
             symbol_types: HashMap::new(),
             current_signature: None,
+            current_this_type: None,
         }
+    }
+
+    fn member_state_mut(&mut self) -> &mut MemberState<'a> {
+        self.member_state
+            .get_or_insert_with(|| Box::new(MemberState::default()))
     }
 
     fn register_function_signature(&mut self, function: &Function<'a>) {
@@ -194,9 +287,37 @@ impl<'a> Checker<'a> {
             return;
         };
 
-        let mut parameters = Vec::with_capacity(function.params.items.len());
-        let mut parameter_symbols = Vec::with_capacity(function.params.items.len());
-        for parameter in &function.params.items {
+        let Some((signature, function_type)) = self.register_annotated_signature(
+            &function.params,
+            Some(&return_annotation.type_annotation),
+            None,
+            false,
+        ) else {
+            return;
+        };
+        self.function_signatures.insert(function_symbol, signature);
+        debug_assert!(function_type.is_none());
+    }
+
+    fn register_annotated_signature(
+        &mut self,
+        parameters: &FormalParameters<'a>,
+        return_annotation: Option<&TSType<'a>>,
+        forced_return: Option<(TypeId, String)>,
+        intern_callable_type: bool,
+    ) -> Option<(SignatureId, Option<TypeId>)> {
+        if self.recoveries.iter().any(|recovery| {
+            recovery.kind == "MissingParameter"
+                && parameters.span.start <= recovery.span.start
+                && recovery.span.end <= parameters.span.end
+        }) || parameters.rest.is_some()
+        {
+            return None;
+        }
+
+        let mut signature_parameters = Vec::with_capacity(parameters.items.len());
+        let mut parameter_symbols = Vec::with_capacity(parameters.items.len());
+        for parameter in &parameters.items {
             if parameter.optional
                 || parameter.initializer.is_some()
                 || parameter.accessibility.is_some()
@@ -204,39 +325,240 @@ impl<'a> Checker<'a> {
                 || parameter.r#override
                 || !parameter.decorators.is_empty()
             {
-                return;
+                return None;
             }
             let BindingPattern::BindingIdentifier(identifier) = &parameter.pattern else {
-                return;
+                return None;
             };
             let (Some(symbol), Some(annotation)) = (
                 identifier.symbol_id.get(),
                 parameter.type_annotation.as_ref(),
             ) else {
-                return;
+                return None;
             };
-            let Some(type_id) = self.type_from_annotation(&annotation.type_annotation) else {
-                return;
-            };
-            parameters.push(SignatureParameter {
+            let type_id = self.type_from_annotation(&annotation.type_annotation)?;
+            signature_parameters.push(SignatureParameter {
                 type_id,
                 diagnostic_name: self.target_text(type_id, Some(&annotation.type_annotation)),
             });
             parameter_symbols.push((symbol, type_id));
         }
 
-        let Some(return_type) = self.type_from_annotation(&return_annotation.type_annotation)
-        else {
+        let (return_type, return_diagnostic_name) = if let Some((return_type, name)) = forced_return
+        {
+            (return_type, name)
+        } else {
+            let annotation = return_annotation?;
+            let return_type = self.type_from_annotation(annotation)?;
+            (return_type, self.target_text(return_type, Some(annotation)))
+        };
+        let callable_parameters = intern_callable_type.then(|| {
+            signature_parameters
+                .iter()
+                .map(|parameter| parameter.type_id)
+                .collect::<Vec<_>>()
+        });
+        let signature = self.signatures.add(Signature {
+            parameters: signature_parameters.into_boxed_slice(),
+            return_type,
+            return_diagnostic_name,
+        });
+        let function_type =
+            callable_parameters.map(|parameters| self.types.function(parameters, return_type));
+        if let Some(function_type) = function_type {
+            self.member_state_mut()
+                .type_signatures
+                .insert(function_type, signature);
+        }
+        self.symbol_types.extend(parameter_symbols);
+        Some((signature, function_type))
+    }
+
+    fn register_class(&mut self, class: &'a Class<'a>) {
+        if !Self::is_supported_class(class) {
+            return;
+        }
+        let Some(id) = &class.id else {
             return;
         };
-        let signature = self.signatures.add(Signature {
-            parameters: parameters.into_boxed_slice(),
-            return_type,
-            return_diagnostic_name: self
-                .target_text(return_type, Some(&return_annotation.type_annotation)),
-        });
-        self.function_signatures.insert(function_symbol, signature);
-        self.symbol_types.extend(parameter_symbols);
+        let Some(class_symbol) = id.symbol_id.get() else {
+            return;
+        };
+
+        let Some(members) = self.class_member_types(class) else {
+            return;
+        };
+        let instance_type = self.types.object(members.instance_properties);
+        let name = id.name.as_str();
+        let static_type = self
+            .types
+            .class_constructor(name, members.static_properties);
+        {
+            let state = self.member_state_mut();
+            state.type_names.insert(instance_type, name.to_owned());
+            state
+                .type_names
+                .insert(static_type, format!("typeof {name}"));
+            state
+                .instance_static_sides
+                .insert(instance_type, (name, static_type));
+            state.class_instance_types.insert(name, instance_type);
+        }
+        self.symbol_types.insert(class_symbol, static_type);
+
+        for (span, signature, is_static) in members.method_signatures {
+            self.member_state_mut().method_contexts.insert(
+                span,
+                (
+                    signature,
+                    if is_static {
+                        static_type
+                    } else {
+                        instance_type
+                    },
+                ),
+            );
+        }
+
+        let constructor_signature = if let Some(constructor) = members.constructor {
+            self.register_annotated_signature(
+                &constructor.value.params,
+                None,
+                Some((instance_type, name.to_owned())),
+                false,
+            )
+            .map(|(signature, _)| signature)
+        } else {
+            Some(self.signatures.add(Signature {
+                parameters: Box::new([]),
+                return_type: instance_type,
+                return_diagnostic_name: name.to_owned(),
+            }))
+        };
+        if let Some(signature) = constructor_signature {
+            self.member_state_mut()
+                .constructor_signatures
+                .insert(class_symbol, signature);
+        }
+    }
+
+    fn class_member_types(&mut self, class: &'a Class<'a>) -> Option<ClassMemberTypes<'a>> {
+        let mut instance_properties = Vec::new();
+        let mut static_properties = Vec::new();
+        let mut method_signatures = Vec::new();
+        let mut constructor = None;
+
+        for element in &class.body.body {
+            match element {
+                ClassElement::PropertyDefinition(property) => {
+                    let annotation = property.type_annotation.as_ref()?;
+                    let name = property.key.static_name()?;
+                    let type_id = self.type_from_annotation(&annotation.type_annotation)?;
+                    self.member_state_mut()
+                        .property_targets
+                        .insert(property.span.start, (type_id, &annotation.type_annotation));
+                    let target = if property.r#static {
+                        &mut static_properties
+                    } else {
+                        &mut instance_properties
+                    };
+                    target.push(ObjectTypeProperty {
+                        name: name.into_owned(),
+                        type_id,
+                        optional: false,
+                    });
+                }
+                ClassElement::MethodDefinition(method)
+                    if method.kind == MethodDefinitionKind::Constructor =>
+                {
+                    constructor = Some(&**method);
+                }
+                ClassElement::MethodDefinition(method) => {
+                    let name = method.key.static_name()?;
+                    let return_annotation = method.value.return_type.as_ref()?;
+                    let (signature, type_id) = self.register_annotated_signature(
+                        &method.value.params,
+                        Some(&return_annotation.type_annotation),
+                        None,
+                        true,
+                    )?;
+                    let type_id = type_id.expect("class methods intern callable types");
+                    let target = if method.r#static {
+                        &mut static_properties
+                    } else {
+                        &mut instance_properties
+                    };
+                    target.push(ObjectTypeProperty {
+                        name: name.into_owned(),
+                        type_id,
+                        optional: false,
+                    });
+                    method_signatures.push((method.value.span.start, signature, method.r#static));
+                }
+                _ => return None,
+            }
+        }
+        Some(ClassMemberTypes {
+            instance_properties,
+            static_properties,
+            method_signatures,
+            constructor,
+        })
+    }
+
+    fn is_supported_class(class: &Class<'a>) -> bool {
+        if class.r#type != ClassType::ClassDeclaration
+            || class.id.is_none()
+            || !class.decorators.is_empty()
+            || class.type_parameters.is_some()
+            || class.heritage.is_some()
+            || !class.implements.is_empty()
+            || class.r#abstract
+            || class.declare
+        {
+            return false;
+        }
+
+        let mut constructor_count = 0_usize;
+        class.body.body.iter().all(|element| match element {
+            ClassElement::PropertyDefinition(property) => {
+                property.r#type == PropertyDefinitionType::PropertyDefinition
+                    && property.decorators.is_empty()
+                    && !property.computed
+                    && !property.declare
+                    && !property.r#override
+                    && !property.optional
+                    && !property.definite
+                    && !property.readonly
+                    && matches!(property.accessibility, None | Some(TSAccessibility::Public))
+                    && property.type_annotation.is_some()
+                    && property.key.static_name().is_some()
+            }
+            ClassElement::MethodDefinition(method) => {
+                if method.kind == MethodDefinitionKind::Constructor {
+                    constructor_count += 1;
+                }
+                method.r#type == oxc_ast::ast::MethodDefinitionType::MethodDefinition
+                    && method.decorators.is_empty()
+                    && !method.computed
+                    && !method.r#override
+                    && !method.optional
+                    && matches!(method.accessibility, None | Some(TSAccessibility::Public))
+                    && method.key.static_name().is_some()
+                    && !method.value.generator
+                    && !method.value.r#async
+                    && !method.value.declare
+                    && method.value.type_parameters.is_none()
+                    && method.value.this_param.is_none()
+                    && method.value.body.is_some()
+                    && (method.kind == MethodDefinitionKind::Constructor
+                        || method.kind == MethodDefinitionKind::Method
+                            && method.value.return_type.is_some())
+                    && (method.kind != MethodDefinitionKind::Constructor || !method.r#static)
+                    && constructor_count <= 1
+            }
+            _ => false,
+        })
     }
 
     fn check_return_statement(&mut self, statement: &ReturnStatement<'a>) {
@@ -275,16 +597,36 @@ impl<'a> Checker<'a> {
         let Some(signature_id) = self.signature_for_call(call) else {
             return;
         };
+        let missing_argument_span = match &call.callee {
+            Expression::StaticMemberExpression(member) => member.property.span,
+            _ => call.callee.span(),
+        };
+        self.check_arguments(&call.arguments, signature_id, missing_argument_span);
+    }
+
+    fn check_new_expression(&mut self, expression: &NewExpression<'a>) {
+        let Some(signature_id) = self.signature_for_new(expression) else {
+            return;
+        };
+        self.check_arguments(&expression.arguments, signature_id, expression.span);
+    }
+
+    fn check_arguments(
+        &mut self,
+        arguments: &[Argument<'a>],
+        signature_id: SignatureId,
+        missing_argument_span: oxc_span::Span,
+    ) {
         let Some(signature) = self.signatures.get(signature_id) else {
             return;
         };
         let expected_count = signature.parameters.len();
-        let actual_count = call.arguments.len();
+        let actual_count = arguments.len();
         if actual_count != expected_count {
             let span = if actual_count < expected_count {
-                call.callee.span()
+                missing_argument_span
             } else {
-                call.arguments[expected_count].span()
+                arguments[expected_count].span()
             };
             self.diagnostics.push(Diagnostic::new(
                 "TS2554",
@@ -295,9 +637,19 @@ impl<'a> Checker<'a> {
             return;
         }
 
-        for index in 0..expected_count {
-            let Some(argument) = call.arguments[index].as_expression() else {
-                return;
+        for (index, argument) in arguments.iter().enumerate().take(expected_count) {
+            let argument = match argument {
+                Argument::SpreadElement(spread)
+                    if Self::is_recovered_expression(&spread.argument) =>
+                {
+                    continue;
+                }
+                argument => {
+                    let Some(argument) = argument.as_expression() else {
+                        return;
+                    };
+                    argument
+                }
             };
             let Some(parameter) = self
                 .signatures
@@ -328,15 +680,37 @@ impl<'a> Checker<'a> {
         }
     }
 
-    fn signature_for_call(&self, call: &CallExpression<'a>) -> Option<SignatureId> {
+    fn signature_for_call(&mut self, call: &CallExpression<'a>) -> Option<SignatureId> {
         if call.optional || call.type_arguments.is_some() {
             return None;
         }
-        let Expression::Identifier(identifier) = &call.callee else {
+        if let Expression::Identifier(identifier) = &call.callee {
+            let symbol = self.symbol_for_identifier(identifier)?;
+            if let Some(signature) = self.function_signatures.get(&symbol) {
+                return Some(*signature);
+            }
+        }
+        let callee_type = self.type_from_expression(&call.callee, None)?;
+        self.member_state
+            .as_ref()?
+            .type_signatures
+            .get(&callee_type)
+            .copied()
+    }
+
+    fn signature_for_new(&self, expression: &NewExpression<'a>) -> Option<SignatureId> {
+        if expression.type_arguments.is_some() {
+            return None;
+        }
+        let Expression::Identifier(identifier) = &expression.callee else {
             return None;
         };
         let symbol = self.symbol_for_identifier(identifier)?;
-        self.function_signatures.get(&symbol).copied()
+        self.member_state
+            .as_ref()?
+            .constructor_signatures
+            .get(&symbol)
+            .copied()
     }
 
     fn symbol_for_identifier(&self, identifier: &IdentifierReference<'a>) -> Option<SymbolId> {
@@ -430,6 +804,82 @@ impl<'a> Checker<'a> {
         ));
     }
 
+    fn check_property_definition(&mut self, property: &PropertyDefinition<'a>) {
+        let Some(value) = &property.value else {
+            return;
+        };
+        let Some((target, annotation)) = self
+            .member_state
+            .as_ref()
+            .and_then(|state| state.property_targets.get(&property.span.start).copied())
+        else {
+            return;
+        };
+        if self.needs_structural_diagnostics(value, target)
+            && let Some(diagnostics) = self.structural_diagnostics(
+                value,
+                target,
+                Some(annotation),
+                Some(property.key.span()),
+            )
+        {
+            self.diagnostics.extend(diagnostics);
+            return;
+        }
+        if let Some(diagnostic) = self.type_mismatch_diagnostic(
+            value,
+            target,
+            Some(annotation),
+            Some(property.key.span()),
+        ) {
+            self.diagnostics.push(diagnostic);
+        }
+    }
+
+    fn check_static_member_expression(&mut self, member: &StaticMemberExpression<'a>) {
+        if member.optional {
+            return;
+        }
+        let Some(object_type) = self.type_from_expression(&member.object, None) else {
+            return;
+        };
+        let name = member.property.name.as_str();
+        if self.object_property_type(object_type, name).is_some() {
+            return;
+        }
+
+        let type_name = self
+            .member_state
+            .as_ref()
+            .and_then(|state| state.type_names.get(&object_type))
+            .cloned()
+            .unwrap_or_else(|| self.types.diagnostic_display(object_type).to_string());
+        let (code, message) = if let Some((class_name, static_type)) = self
+            .member_state
+            .as_ref()
+            .and_then(|state| state.instance_static_sides.get(&object_type).copied())
+            && self.object_property_type(static_type, name).is_some()
+        {
+            (
+                "TS2576",
+                format!(
+                    "Property '{name}' does not exist on type '{type_name}'. Did you mean to access the static member '{class_name}.{name}' instead?"
+                ),
+            )
+        } else {
+            (
+                "TS2339",
+                format!("Property '{name}' does not exist on type '{type_name}'."),
+            )
+        };
+        self.diagnostics.push(Diagnostic::new(
+            code,
+            message,
+            Phase::Check,
+            Some(Self::range(member.property.span)),
+        ));
+    }
+
     fn check_assignment_expression(&mut self, assignment: &AssignmentExpression<'a>) {
         if !assignment.operator.is_assign() {
             return;
@@ -506,7 +956,9 @@ impl<'a> Checker<'a> {
                 } else if let Some(interface) = self.interfaces.get(name).copied() {
                     self.type_from_interface(interface)
                 } else {
-                    None
+                    self.member_state
+                        .as_ref()
+                        .and_then(|state| state.class_instance_types.get(name).copied())
                 };
                 self.resolving_named_types.remove(name);
                 resolved
@@ -522,26 +974,58 @@ impl<'a> Checker<'a> {
         if interface.type_parameters.is_some() || !interface.extends.is_empty() {
             return None;
         }
-        self.type_from_property_members(&interface.body.body)
+        let type_id = self.type_from_property_members(&interface.body.body)?;
+        self.member_state_mut()
+            .type_names
+            .entry(type_id)
+            .or_insert_with(|| interface.id.name.to_string());
+        Some(type_id)
     }
 
     fn type_from_property_members(&mut self, members: &[TSSignature<'a>]) -> Option<TypeId> {
         let properties: Option<Vec<_>> = members
             .iter()
-            .map(|member| {
-                let TSSignature::TSPropertySignature(property) = member else {
-                    return None;
-                };
-                if property.computed {
-                    return None;
+            .map(|member| match member {
+                TSSignature::TSPropertySignature(property) => {
+                    if property.computed {
+                        return None;
+                    }
+                    let name = property.key.static_name()?.into_owned();
+                    let annotation = property.type_annotation.as_ref()?;
+                    let type_id = if matches!(annotation.type_annotation, TSType::MissingType(_)) {
+                        self.types.primitives().any
+                    } else {
+                        self.type_from_annotation(&annotation.type_annotation)?
+                    };
+                    Some(ObjectTypeProperty {
+                        name,
+                        type_id,
+                        optional: property.optional,
+                    })
                 }
-                let name = property.key.static_name()?.into_owned();
-                let annotation = property.type_annotation.as_ref()?;
-                Some(ObjectTypeProperty {
-                    name,
-                    type_id: self.type_from_annotation(&annotation.type_annotation)?,
-                    optional: property.optional,
-                })
+                TSSignature::TSMethodSignature(method)
+                    if !method.computed
+                        && !method.optional
+                        && method.kind == TSMethodSignatureKind::Method
+                        && method.type_parameters.is_none()
+                        && method.this_param.is_none() =>
+                {
+                    let name = method.key.static_name()?.into_owned();
+                    let return_annotation = method.return_type.as_ref()?;
+                    let (_, type_id) = self.register_annotated_signature(
+                        &method.params,
+                        Some(&return_annotation.type_annotation),
+                        None,
+                        true,
+                    )?;
+                    let type_id = type_id.expect("interface methods intern callable types");
+                    Some(ObjectTypeProperty {
+                        name,
+                        type_id,
+                        optional: false,
+                    })
+                }
+                _ => None,
             })
             .collect();
         Some(self.types.object(properties?))
@@ -618,52 +1102,90 @@ impl<'a> Checker<'a> {
             Expression::Identifier(identifier) => self
                 .symbol_for_identifier(identifier)
                 .and_then(|symbol| self.symbol_types.get(&symbol).copied()),
-            Expression::CallExpression(call) => self
-                .signature_for_call(call)
-                .and_then(|signature| self.signatures.get(signature))
-                .map(|signature| signature.return_type),
+            Expression::ThisExpression(_) => self.current_this_type,
+            Expression::StaticMemberExpression(member) if !member.optional => {
+                let object = self.type_from_expression(&member.object, None)?;
+                self.object_property_type(object, member.property.name.as_str())
+            }
+            Expression::CallExpression(call) => {
+                let signature = self.signature_for_call(call)?;
+                self.signatures
+                    .get(signature)
+                    .map(|signature| signature.return_type)
+            }
+            Expression::NewExpression(expression) => {
+                let signature = self.signature_for_new(expression)?;
+                self.signatures
+                    .get(signature)
+                    .map(|signature| signature.return_type)
+            }
             Expression::ArrayExpression(array) => {
-                let element_target = contextual_target
-                    .and_then(|target| self.contextual_array_element_target(target));
-                let elements: Option<Vec<_>> = array
-                    .elements
-                    .iter()
-                    .map(|element| {
-                        self.type_from_expression(element.as_expression()?, element_target)
-                    })
-                    .collect();
-                let element = self.types.union(elements?);
-                Some(self.types.array(element))
+                self.type_from_array_expression(array, contextual_target)
             }
             Expression::ObjectExpression(object) => {
-                let properties: Option<Vec<_>> = object
-                    .properties
-                    .iter()
-                    .map(|member| {
-                        let ObjectPropertyKind::ObjectProperty(property) = member else {
-                            return None;
-                        };
-                        if property.computed || property.method {
-                            return None;
-                        }
-                        let name = property.key.static_name()?.into_owned();
-                        let property_target = contextual_target.and_then(|target| {
-                            self.contextual_object_property_target(target, &name)
-                        });
-                        Some(ObjectTypeProperty {
-                            name,
-                            type_id: self.type_from_expression(&property.value, property_target)?,
-                            optional: false,
-                        })
-                    })
-                    .collect();
-                Some(self.types.object(properties?))
+                self.type_from_object_expression(object, contextual_target)
             }
             Expression::ParenthesizedExpression(parenthesized) => {
                 self.type_from_expression(&parenthesized.expression, contextual_target)
             }
             _ => None,
         }
+    }
+
+    fn type_from_array_expression(
+        &mut self,
+        array: &ArrayExpression<'a>,
+        contextual_target: Option<TypeId>,
+    ) -> Option<TypeId> {
+        let element_target =
+            contextual_target.and_then(|target| self.contextual_array_element_target(target));
+        let elements: Option<Vec<_>> = array
+            .elements
+            .iter()
+            .map(|element| self.type_from_expression(element.as_expression()?, element_target))
+            .collect();
+        let element = self.types.union(elements?);
+        Some(self.types.array(element))
+    }
+
+    fn type_from_object_expression(
+        &mut self,
+        object: &ObjectExpression<'a>,
+        contextual_target: Option<TypeId>,
+    ) -> Option<TypeId> {
+        let properties: Option<Vec<_>> = object
+            .properties
+            .iter()
+            .map(|member| {
+                let ObjectPropertyKind::ObjectProperty(property) = member else {
+                    return None;
+                };
+                if property.computed || property.method {
+                    return None;
+                }
+                let name = property.key.static_name()?.into_owned();
+                let property_target = contextual_target
+                    .and_then(|target| self.contextual_object_property_target(target, &name));
+                Some(ObjectTypeProperty {
+                    name,
+                    type_id: self.type_from_expression(&property.value, property_target)?,
+                    optional: false,
+                })
+            })
+            .collect();
+        Some(self.types.object(properties?))
+    }
+
+    fn object_property_type(&self, object: TypeId, name: &str) -> Option<TypeId> {
+        let properties = match self.types.kind(object)? {
+            TypeKind::Object(properties) => properties.as_ref(),
+            TypeKind::ClassConstructor(class) => class.properties.as_ref(),
+            _ => return None,
+        };
+        properties
+            .iter()
+            .find(|property| property.name == name)
+            .map(|property| property.type_id)
     }
 
     fn contextual_array_element_target(&mut self, target: TypeId) -> Option<TypeId> {
@@ -852,6 +1374,9 @@ impl<'a> Checker<'a> {
             let ObjectPropertyKind::ObjectProperty(property) = member else {
                 return None;
             };
+            if Self::is_recovered_expression(&property.value) {
+                continue;
+            }
             let name = property.key.static_name()?;
             let Some(property_target) = self.contextual_object_property_target(target, &name)
             else {
@@ -932,6 +1457,9 @@ impl<'a> Checker<'a> {
             let ObjectPropertyKind::ObjectProperty(source) = member else {
                 return None;
             };
+            if Self::is_recovered_expression(&source.value) {
+                continue;
+            }
             let name = source.key.static_name()?.into_owned();
             if let Some(property) = properties.iter().find(|property| property.name == name) {
                 let property_annotation = target_annotation.and_then(|annotation| {
@@ -968,8 +1496,18 @@ impl<'a> Checker<'a> {
         let element_annotation =
             target_annotation.and_then(|annotation| self.array_element_annotation(annotation));
         for item in &array.elements {
+            let expression = match item {
+                ArrayExpressionElement::MissingExpression(_)
+                | ArrayExpressionElement::MalformedExpression(_) => continue,
+                ArrayExpressionElement::SpreadElement(spread)
+                    if Self::is_recovered_expression(&spread.argument) =>
+                {
+                    continue;
+                }
+                _ => item.as_expression()?,
+            };
             diagnostics.extend(self.structural_diagnostics(
-                item.as_expression()?,
+                expression,
                 element,
                 element_annotation,
                 None,
@@ -998,6 +1536,15 @@ impl<'a> Checker<'a> {
             Phase::Check,
             Some(Self::range(anchor.unwrap_or_else(|| expression.span()))),
         ))
+    }
+
+    fn is_recovered_expression(expression: &Expression<'a>) -> bool {
+        matches!(
+            expression,
+            Expression::MissingExpression(_)
+                | Expression::MalformedExpression(_)
+                | Expression::MissingMemberExpression(_)
+        )
     }
 
     fn target_text(&self, target: TypeId, target_annotation: Option<&TSType<'a>>) -> String {

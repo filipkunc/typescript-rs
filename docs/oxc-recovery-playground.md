@@ -1,5 +1,14 @@
 # Oxc recovery playground
 
+Status: the pinned fork revisions implement the owned parse-only inspection response and the first
+Normal/Editor/Compare UI. It renders structural summaries and a collapsible typed-AST tree, keeps
+recovered input away from batch-only consumers, supports named initializer and assignment examples,
+gives zero-width recovery nodes a Monaco caret decoration, expands the narrowest tree path at the
+editor caret, and exposes separately navigable diagnostics and recovery sites. Native inspection
+tests, focused frontend tests, frontend format/lint/build, and an automated headless-Chrome edit
+smoke pass locally. The matching published revisions are recorded in
+[`oxc-fork.md`](oxc-fork.md).
+
 ## Decision
 
 Use Oxc's existing web playground as the human review surface for editor recovery. Extend its
@@ -92,6 +101,19 @@ comparison in the first slice.
 Every recovery grammar slice adds at least one named playground example drawn from its focused
 tests. The URL is included in the corresponding fork PR so review can cover both individual edit
 states and the full surrounding program.
+
+Missing separators and closers appear in the flat recovery-site list using their synthetic-token
+kind and zero-width insertion point. They do not add a fake child to the structural AST tree. The
+named `missing-list-delimiters` example contains object/call commas and an array closer so both
+representations can be reviewed together.
+The named `missing-type-annotation` example combines a structural `MissingType` node with a
+metadata-only missing array-type bracket so both type-recovery representations are visible in one
+inspection.
+The named `malformed-expression` example shows non-empty `MalformedExpression` ranges beside the
+zero-width missing-node examples, making the representation boundary directly reviewable.
+The named `function-interface-edits` example combines metadata-only parameter/type-member/closer
+sites with `MissingMemberExpression` nodes. It demonstrates that member-object references and
+later bindings survive without a synthesized parameter or property identifier.
 
 The reviewer should be able to answer, without reading serialized JSON:
 

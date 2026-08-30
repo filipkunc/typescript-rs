@@ -1146,6 +1146,7 @@ dependencies = [
  "oxc_parser",
  "oxc_semantic",
  "oxc_span",
+ "serde",
  "serde_json",
  "tokio",
  "tower-lsp-server",

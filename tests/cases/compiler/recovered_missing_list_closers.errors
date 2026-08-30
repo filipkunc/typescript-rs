@@ -1,0 +1,9 @@
+TS1005@3:44 [parse] ',' expected.
+TS1005@6:49 [parse] ',' expected.
+TS1005@9:28 [parse] ',' expected.
+TS2322@3:29 [check] Type 'string' is not assignable to type 'number'.
+TS2322@4:7 [check] Type 'string' is not assignable to type 'number'.
+TS2322@6:41 [check] Type 'string' is not assignable to type 'number'.
+TS2322@7:7 [check] Type 'string' is not assignable to type 'number'.
+TS2345@9:22 [check] Argument of type 'string' is not assignable to parameter of type 'number'.
+TS2322@10:7 [check] Type 'string' is not assignable to type 'number'.

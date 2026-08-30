@@ -21,10 +21,58 @@ The Oxc source baseline is pinned as the `vendor/oxc` Git submodule so editor-re
 the AST, parser, generated visitors, and semantic builder can be developed and tested together.
 Cargo resolves every Oxc crate from that checkout; normal parser behavior remains the baseline
 and the first opt-in recovery slice described in the [recovery plan](oxc-editor-recovery-plan.md)
-preserves a missing variable initializer as `MissingExpression`. `check_source` opts into that mode,
-keeps the syntax diagnostic, and checks independent declarations in the recovered program while
-treating the missing expression as having no trustworthy type. Exact fork and upstream revisions
-are recorded in the [compatibility note](oxc-fork.md).
+preserves a missing variable initializer as `MissingExpression`. The next local slice adds explicit
+source/block recovery contexts and preserves a missing assignment right-hand side at boundaries
+owned by those contexts. The object-value slice adds an object-property list context, leaves commas
+and closing braces to that owner, and skips only the recovered property's type relation so sibling
+properties remain checkable. The array-element context applies the same rule to assignment and
+spread operands at commas/closing brackets while retaining ordinary elisions for array holes. The
+argument context also represents an empty comma-delimited argument as `MissingExpression` with
+`TS1135`, preserving later arguments and their parameter checks. The three list contexts share
+missing-comma and safe closer recovery. Because punctuation has no AST child slot, Oxc returns an
+owned zero-width recovery event alongside the ordinary object, array, or call node; `check_source`
+uses that metadata to distinguish supported non-fatal syntax from unrelated parser errors.
+An absent annotation type instead occupies a typed child slot and is represented by the explicit
+zero-width `MissingType` variant. Missing array, parenthesized, and type-argument closers extend the
+same recovery metadata with `]`, `)`, and `>` insertion sites. `tsrs` leaves top-level missing
+types unresolved and lowers a directly missing object-property type to its existing `any` identity
+to suppress dependent noise without hiding source-backed sibling diagnostics.
+The final Stage 2 representation, `MalformedExpression`, carries the non-empty span of an
+unexpected `:` or `...` token in a source/block initializer or assignment slot. It is semantically
+inert and resolves to no checker type, keeping it distinct from both a zero-width missing node and
+trustworthy source-backed expressions.
+Stage 3 adds parameter and type-member recovery contexts. Empty parameter slots are recorded as
+owned `MissingParameter` events and create no binding; `check_source` keeps those events alive only
+for its current parse/check run, and the checker skips a callable signature containing one.
+Missing static or optional member names use `MissingMemberExpression`, which owns the real object
+expression and a distinct zero-width property insertion span. Semantic traversal therefore keeps
+the object reference without inventing a property identifier. Function-body, parameter,
+interface-member, return-expression, and interface-closing recovery follow the bounded policy in
+[`oxc-function-interface-recovery.md`](oxc-function-interface-recovery.md).
+Stage 4 keeps annotated callable members as structural function identities backed by the existing
+signature store. Supported classes use a structural object identity for their instance side and a
+distinct named constructor/static identity; the class value symbol maps to the latter, while a type
+reference and `new` resolve to the former. Oxc's `ClassMembers` recovery context retains real class
+across missing separators and records an EOF closer as punctuation metadata, as specified in
+[`class-checker-milestone.md`](class-checker-milestone.md) and
+[`oxc-class-recovery.md`](oxc-class-recovery.md).
+Stage 5 adds a declaration boundary for an unclosed call followed by `const` or `var`, and preserves
+a statement-position variable declaration missing its name as an empty declarator list. Two owned
+recovery events retain the exact parser diagnostics without manufacturing a binding. The complete
+25-case manifest, deletion matrix, LSP edit sequence, upstream slicing, and decision to defer
+fine-grained incremental parsing are recorded in
+[`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md).
+`check_source` opts into editor mode, keeps the syntax diagnostic, and checks independent syntax in
+the recovered program while
+treating the missing expression as having no trustworthy type. Exact pinned fork and upstream
+revisions are recorded in the
+[compatibility note](oxc-fork.md).
+
+Cross-parser recovery parity is stored as owned JSON described in the
+[recovery-manifest workflow](oxc-recovery-manifest.md). A checked-in probe runs only during explicit
+regeneration inside the pinned TypeScript-Go checkout. Normal Rust tests validate the revision and
+case sources, then compare Oxc diagnostics, normalized surviving statement kinds, declaration
+names, semantic bindings, and explicit recovery-site counts entirely offline.
 
 `check_source` currently runs all stages serially for one file. A future `Program` should
 own source snapshots and stable file identities, and should schedule independent files in
@@ -66,8 +114,7 @@ without adding callable identity to `TypeKind`.
 
 The milestone excludes interface inheritance and declaration merging; recursive and generic
 interfaces; method, call, construct, and index signatures; property/member access expressions; and
-classes. The intended next sequence is callable interface members with member access, then classes
-with separate instance and constructor/static sides.
+classes. Those later callable-member and bounded class-side increments are now documented below.
 
 ## Completed checker slice: basic expressions
 
@@ -90,9 +137,13 @@ project model. A Tokio stdio server built on `tower-lsp-server` owns full text s
 numbers only for documents opened by the client. On open and change it invokes the existing
 `check_source` boundary and publishes owned diagnostics; on close it removes the snapshot and
 clears diagnostics. Requests are handled sequentially for now so an older check cannot publish
-after a newer document version. For the first supported recovery shape, a missing variable
-initializer no longer hides later type diagnostics, and completing the initializer removes its
-syntax diagnostic on the next full-document check.
+after a newer document version. For the supported recovery shapes, a missing variable initializer,
+assignment right-hand side, or object/array/call operand no longer hides independent type
+diagnostics. The same applies to supported object/array/call list delimiters, and completing the
+expression, punctuation, annotation, type closer, or supported source-backed malformed token
+removes its syntax diagnostic on the next full-document check.
+Supported parameter, function-body, return-expression, interface, and member-access edits use the
+same full-document recovery loop and retain independent diagnostics.
 
 The LSP adapter is binary-only frontend code. It translates UTF-8 byte ranges to UTF-16 line and
 character positions and does not move Oxc arenas, AST nodes, scopes, or references across checks.
@@ -104,13 +155,14 @@ This tooling milestone does not yet define `Program`: it neither scans a workspa
 diagnostics and language features must wait for stable file identities, configuration ownership,
 module resolution, and dependency tracking.
 
-## Next checker milestone: callable interface members and member access
+## Completed checker milestone: callable members and class sides
 
-The next checker expansion should add explicitly typed interface methods and property/member access
-on the existing object model. This creates a focused semantic path shared by interface values and
-the later class instance side. Classes remain the following milestone and should model instance and
-constructor/static sides explicitly rather than being introduced as syntax accepted only for the
-editor demo.
+Statically named interface property reads and explicitly annotated method calls now provide the
+semantic path shared by class instances. The bounded class slice models instance and
+constructor/static sides separately and is specified in
+[`class-checker-milestone.md`](class-checker-milestone.md). Broader class syntax and callable
+structural relations remain later checker milestones rather than being accepted only for the editor
+demo.
 
 ## Diagnostics and editor use
 

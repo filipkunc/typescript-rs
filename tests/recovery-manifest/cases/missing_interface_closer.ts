@@ -1,0 +1,2 @@
+interface Box {
+  value: number;
