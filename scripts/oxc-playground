@@ -34,20 +34,27 @@ check_submodules() {
   fi
 }
 
-ensure_wasm_target() {
+ensure_wasm_target_for() {
   require_command rustup
 
   (
-    cd "${oxc_dir}"
+    cd "$1"
     if ! rustup target list --installed | grep -qx "wasm32-wasip1-threads"; then
       rustup target add wasm32-wasip1-threads
     fi
   )
 }
 
+ensure_wasm_targets() {
+  # The pinned Oxc and tsrs checkouts intentionally use different Rust toolchains. Targets are
+  # installed per toolchain, so prepare both before building their respective WASM packages.
+  ensure_wasm_target_for "${oxc_dir}"
+  ensure_wasm_target_for "${repo_root}"
+}
+
 install_dependencies() {
   require_command pnpm
-  ensure_wasm_target
+  ensure_wasm_targets
 
   (
     cd "${oxc_dir}"
@@ -66,7 +73,7 @@ install_dependencies() {
 build_playground() {
   require_command node
   require_command pnpm
-  ensure_wasm_target
+  ensure_wasm_targets
 
   if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${tsrs_playground_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
     install_dependencies
