@@ -1,0 +1,3 @@
+TS1135@3:7 [parse] Argument expression expected.
+TS2345@3:9 [check] Argument of type 'string' is not assignable to parameter of type 'number'.
+TS2322@4:7 [check] Type 'string' is not assignable to type 'number'.

@@ -1,0 +1,4 @@
+TS2322@13:7 [check] Type 'string' is not assignable to type 'number'.
+TS2345@14:18 [check] Argument of type 'number' is not assignable to parameter of type 'string'.
+TS2554@15:11 [check] Expected 1 arguments, but got 0.
+TS2339@16:11 [check] Property 'missing' does not exist on type 'Formatter'.

@@ -1,11 +1,17 @@
 # Oxc editor recovery fork plan
 
-Status: the first narrow vertical slice is integrated. The merged and pinned Oxc fork represents a
-missing variable initializer as `MissingExpression` in opt-in editor mode, the pinned playground
-can inspect that mode, and `tsrs` now preserves the parser diagnostic while checking trustworthy
-later declarations. This cuts through parts of Stages 1 and 2 without completing either stage:
-general recovery contexts, the reference manifest, assignment/object/array/argument recovery, and
-the full structural comparison UI remain outstanding.
+Status: the first narrow vertical slice is pinned, and the current working tree extends it through
+assignment RHS, object value, array operand, call argument, and shared expression-list delimiter
+recovery, incomplete type annotations and safe type closers, and a bounded source-backed
+malformed-expression policy. The parse-only Normal/Editor comparison UI and end-to-end `tsrs`/LSP
+integrations exist locally. Stage 2 release gates pass, the pinned cross-parser recovery
+manifest/probe is checked in, and the bounded Stage 2–5 implementations pass all local release
+gates. The exact Oxc and playground revisions are published in the `filipkunc` forks and pinned by
+the integration branch. Hosted CI runs in those forks; publication to the original
+`oxc-project` repositories is outside the authorized scope.
+
+Current requirement-by-requirement progress is tracked in
+[`oxc-editor-recovery-status.md`](oxc-editor-recovery-status.md).
 
 ## Decision
 
@@ -211,7 +217,7 @@ const values = [1,
 foo(
 function f(value:
 interface Box { value:
-class Box { method(
+class Box { first: number = 1 second: string = "ok"; }
 const broken = ; const intact: number = "wrong";
 ```
 
@@ -324,15 +330,46 @@ and all existing conformance tests remain stable.
 The first integration point is complete for variable initializers at comma, semicolon,
 closing-brace, and EOF boundaries. `check_source` selects editor mode, binds the recovered program,
 suppresses checker diagnostics derived from `MissingExpression`, and continues checking independent
-code. The next fork slice must be specified narrowly before implementation; it should introduce the
-minimum explicit expression/list recovery context needed for a missing assignment right-hand side,
-then use that proven progress rule for array elements, object property values, and arguments in
-separate focused increments.
+code. The second slice is specified in
+[`oxc-assignment-rhs-recovery.md`](oxc-assignment-rhs-recovery.md) and locally implements the minimum
+explicit source/block list contexts needed for a missing assignment right-hand side. After its
+fork, playground, and integration gates pass, use that proven progress rule for array elements,
+object property values, and arguments in separate focused increments. The object-value increment is
+specified in [`oxc-object-property-value-recovery.md`](oxc-object-property-value-recovery.md) and is
+implemented locally for comma and closing-brace boundaries.
+The array operand increment is specified in
+[`oxc-array-operand-recovery.md`](oxc-array-operand-recovery.md) and preserves assignment/spread
+recovery without reclassifying valid array holes.
+The call-argument increment is specified in
+[`oxc-call-argument-recovery.md`](oxc-call-argument-recovery.md) and covers empty argument slots,
+assignment RHS values, and spread operands. The shared
+[`oxc-list-delimiter-recovery.md`](oxc-list-delimiter-recovery.md) increment adds missing commas and
+safe closing or nested-mismatched delimiter recovery for all three list contexts, represented as
+owned zero-width parser recovery metadata rather than expression nodes.
+The [`oxc-type-recovery.md`](oxc-type-recovery.md) increment adds `MissingType` for absent
+annotations, aliases, union constituents, and object-property types, plus metadata-backed safe
+closers for array, parenthesized, and type-argument syntax.
+The
+[`oxc-malformed-expression-recovery.md`](oxc-malformed-expression-recovery.md) increment adds a
+non-empty `MalformedExpression` for supported unexpected initializer and assignment tokens, keeping
+source-backed malformed text distinct from zero-width missing syntax.
+
+The Stage 0 recovery-manifest format, pinned probe, and 25-case Stage 2–5 corpus are implemented as
+described in
+[`oxc-recovery-manifest.md`](oxc-recovery-manifest.md). Ordinary tests compare the implemented
+grammar areas offline and do not invoke the external reference checkout.
 
 ### Stage 3: Functions and interfaces
 
 Add parameters, arguments, function bodies, return types, interface members, and member-access
 recovery. Harden Oxc semantic construction and `tsrs` cascade suppression for these nodes.
+
+The local increment is specified in
+[`oxc-function-interface-recovery.md`](oxc-function-interface-recovery.md). It covers missing
+parameter slots/delimiters/types, function-body closers, return operands/types, interface member
+types/separators/closers, and static or optional member names. Empty parameters remain metadata-only
+and suppress incomplete callable signatures; missing member names retain their source-backed object
+in `MissingMemberExpression` without inventing an identifier.
 
 ### Stage 4: Classes
 
@@ -340,12 +377,28 @@ Add class-member recovery alongside the planned class type-checker milestone. Ke
 and constructor/static-side semantics in `tsrs`; the fork should provide only trustworthy syntax
 and semantic identities.
 
+The local checker milestone is specified in
+[`class-checker-milestone.md`](class-checker-milestone.md). It completes statically named interface
+member access and method calls, then gives supported top-level classes separate structural instance
+and constructor/static sides with annotated members, constructors, `new`, method calls, property
+initializers, return checking, and `this` property reads. The bounded parser increment in
+[`oxc-class-recovery.md`](oxc-class-recovery.md) retains class properties across a missing same-line
+separator and retains a class across an EOF body closer.
+
 ### Stage 5: Broader parity and upstreaming
 
 - Grow the edit-state corpus from TypeScript-Go conformance cases and real editor sessions.
 - Upstream isolated recovery primitives and grammar fixes.
 - Measure whether fine-grained incremental parsing is necessary after full-file recovery is stable.
 - Reevaluate whether the fork remains necessary after upstream adoption.
+
+The local Stage 5 implementation promotes the final missing-call-closer and
+missing-declaration-name cases into exact parity, adds a twelve-case deterministic deletion matrix
+and a four-version LSP repair sequence, and records the isolated upstream review order in
+[`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md). Full-file checks remain in the
+low-microsecond range for the current corpus, so fine-grained incremental parsing is deferred until
+a stable `Program` model and realistic editor traces identify it as a bottleneck. The fork remains
+necessary until upstream adopts the parser representations and semantic guarantees used here.
 
 ## Completion criteria for the first usable milestone
 

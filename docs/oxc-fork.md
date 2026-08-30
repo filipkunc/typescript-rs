@@ -10,14 +10,16 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Upstream release revision (`crates_v0.147.0`): `4e258430cdb290598d9f2aeb2d13be598ec9e8e9`
 - Fork: <https://github.com/filipkunc/oxc>
 - Recovery branch: `feat/editor-missing-expression`
-- Recovery PR (merged): <https://github.com/filipkunc/oxc/pull/1>
-- Pinned fork revision: `e8a03287dbf884ead65393e73488a02b9c099ef2`
+- Baseline recovery PR (merged): <https://github.com/filipkunc/oxc/pull/1>
+- Complete recovery integration PR: <https://github.com/filipkunc/oxc/pull/2>
+- Pinned fork revision: `795610b4e40afe4fd1dde5f6d6f2a98190b7b499`
 - Fork `main` integrated before merge: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
 - Playground fork: <https://github.com/filipkunc/playground>
 - Playground branch: `feat/editor-recovery-playground`
-- Playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
-- Pinned playground revision: `ebb97febdd6de95acd074bfdf4ca6c0ec4dfc998`
+- Baseline playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
+- Complete playground integration PR: <https://github.com/filipkunc/playground/pull/2>
+- Pinned playground revision: `149c54a6b1161a462300ffbde84c5c3ab66f0eb4`
 - Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and
   `check_source` opting into `ParseMode::Editor`; the public checker API is unchanged
 
@@ -28,16 +30,37 @@ zero-width, Rust-only `MissingExpression`. Normal parser mode remains the Oxc de
 selects editor mode at its single-file parse boundary, runs semantic construction on the recovered
 program, and checks independent code only when the recovered node kind has a tested safe policy.
 
-The merged candidate passed Oxc AST generation, workspace-wide all-target compilation, strict
-all-target/all-feature Clippy, focused parser and semantic tests, and the all-feature test suite
-apart from two environment-dependent snapshot groups: the installed Node `v26.5.1` differs from
-the recorded `v26.5.0`, and the non-TTY runner omits expected ANSI styling. No generated snapshots
-were accepted. The exact pinned revision also passed the production WASM/frontend build; the
-earlier candidate passed a headless browser edit-complete-edit smoke test. The `tsrs` `check_file`
-benchmark identified the editor-mode check on the normal initializer path; marking it cold
-recovered 4.4% in `simple_assignments` and 1.9% in `annotated_callables` relative to the unhinted
-implementation. The final fork-`main` synchronization produced no meaningful regressions in the
-same suite; `literal_unions` improved by 4.3%, while the remaining cases stayed within noise.
+The exact pinned candidate passes Oxc AST and linter generation, workspace-wide all-target
+compilation, strict all-target/all-feature Clippy, full rustdoc, the unfiltered all-feature test
+suite with its recorded Node 26.5.0 runtime and color environment, parser and semantic conformance,
+allocation snapshots, and the normal/editor parser benchmark. The reviewed parser conformance
+snapshots add only `Opened here` secondary labels for unmatched delimiters. The exact playground
+revision passes the production WASM/frontend build, focused frontend tests, type checking, linting,
+and the headless browser recovery-and-repair smoke.
+
+## Completed recovery milestone
+
+The pinned revision implements the separately specified
+[missing-assignment-RHS](oxc-assignment-rhs-recovery.md) and
+[missing-object-property-value](oxc-object-property-value-recovery.md) slices, plus the
+[array-operand](oxc-array-operand-recovery.md) and
+[call-argument](oxc-call-argument-recovery.md) slices, plus shared
+[list-delimiter recovery](oxc-list-delimiter-recovery.md), and the
+[type-recovery](oxc-type-recovery.md) slice. They add active
+source/block/object-property/array-element/argument/type-argument/parenthesized-type recovery
+contexts in the Oxc parser and matching named playground examples. Missing punctuation is carried
+as owned zero-width parser recovery metadata; an absent type uses the zero-width `MissingType` AST
+variant. The final local Stage 2 increment adds the source-backed `MalformedExpression`
+representation and focused source/block initializer and assignment recovery described in
+[`oxc-malformed-expression-recovery.md`](oxc-malformed-expression-recovery.md). It also contains the bounded Stage 3 function,
+parameter, interface, and member-access increment described in
+[`oxc-function-interface-recovery.md`](oxc-function-interface-recovery.md), including
+`MissingMemberExpression` and metadata-only empty parameters. Stage 4 adds bounded class-member
+recovery, and Stage 5 completes all 25 manifest cases with missing call-closer and nameless variable
+declaration recovery. The proposed upstream slices and current decision to retain the fork are in
+[`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md). The fork and playground branches are
+published in the `filipkunc` repositories at the exact revisions above. Submission to the original
+`oxc-project` repositories is intentionally outside the authorized publication scope.
 
 ## Updating the pin
 

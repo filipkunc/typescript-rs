@@ -1,0 +1,3 @@
+TS1109@3:10 [parse] Expression expected.
+TS1109@4:24 [parse] Expression expected.
+TS2322@5:7 [check] Type 'string' is not assignable to type 'number'.

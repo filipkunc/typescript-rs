@@ -41,6 +41,20 @@ pub struct ObjectTypeProperty {
     pub optional: bool,
 }
 
+/// The structural identity of an explicitly annotated callable member.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct FunctionTypeShape {
+    pub parameters: Box<[TypeId]>,
+    pub return_type: TypeId,
+}
+
+/// A class value's named constructor/static side.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ClassConstructorType {
+    pub name: String,
+    pub properties: Box<[ObjectTypeProperty]>,
+}
+
 /// The structural key for an interned TypeScript type.
 ///
 /// New compound types are added here as their checker behavior is introduced.
@@ -66,6 +80,8 @@ pub enum TypeKind {
     Union(Box<[TypeId]>),
     Object(Box<[ObjectTypeProperty]>),
     Array(TypeId),
+    Function(FunctionTypeShape),
+    ClassConstructor(Box<ClassConstructorType>),
 }
 
 impl fmt::Display for TypeKind {
@@ -90,6 +106,8 @@ impl fmt::Display for TypeKind {
                 return write!(formatter, "object({} properties)", properties.len());
             }
             Self::Array(_) => return formatter.write_str("array"),
+            Self::Function(_) => return formatter.write_str("function"),
+            Self::ClassConstructor(class) => return write!(formatter, "typeof {}", class.name),
         };
         formatter.write_str(name)
     }
@@ -221,9 +239,36 @@ impl TypeStore {
         self.intern(TypeKind::Object(properties.into_boxed_slice()))
     }
 
+    /// Construct the named constructor/static side of a class.
+    pub fn class_constructor(
+        &mut self,
+        name: impl Into<String>,
+        properties: impl IntoIterator<Item = ObjectTypeProperty>,
+    ) -> TypeId {
+        let mut properties: Vec<_> = properties.into_iter().collect();
+        properties.sort_unstable();
+        properties.dedup();
+        self.intern(TypeKind::ClassConstructor(Box::new(ClassConstructorType {
+            name: name.into(),
+            properties: properties.into_boxed_slice(),
+        })))
+    }
+
     /// Construct an array type with the given element type.
     pub fn array(&mut self, element: TypeId) -> TypeId {
         self.intern(TypeKind::Array(element))
+    }
+
+    /// Construct an explicitly annotated callable type.
+    pub fn function(
+        &mut self,
+        parameters: impl IntoIterator<Item = TypeId>,
+        return_type: TypeId,
+    ) -> TypeId {
+        self.intern(TypeKind::Function(FunctionTypeShape {
+            parameters: parameters.into_iter().collect(),
+            return_type,
+        }))
     }
 
     /// Resolve a type identity to its structural key.
@@ -283,10 +328,42 @@ impl TypeStore {
 }
 
 /// Display adapter for an interned type.
+#[derive(Clone, Copy)]
 pub struct TypeDisplay<'a> {
     store: &'a TypeStore,
     id: TypeId,
     diagnostic: bool,
+}
+
+impl TypeDisplay<'_> {
+    fn fmt_function(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+        function: &FunctionTypeShape,
+    ) -> fmt::Result {
+        formatter.write_str("(")?;
+        for (index, parameter) in function.parameters.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str(", ")?;
+            }
+            write!(formatter, "arg{index}: ")?;
+            fmt::Display::fmt(
+                &Self {
+                    id: *parameter,
+                    ..*self
+                },
+                formatter,
+            )?;
+        }
+        formatter.write_str(") => ")?;
+        fmt::Display::fmt(
+            &Self {
+                id: function.return_type,
+                ..*self
+            },
+            formatter,
+        )
+    }
 }
 
 impl fmt::Display for TypeDisplay<'_> {
@@ -382,6 +459,8 @@ impl fmt::Display for TypeDisplay<'_> {
                     formatter.write_str("[]")
                 }
             }
+            TypeKind::Function(function) => self.fmt_function(formatter, function),
+            TypeKind::ClassConstructor(class) => write!(formatter, "typeof {}", class.name),
             _ => kind.fmt(formatter),
         }
     }
@@ -439,12 +518,16 @@ const fn primitive_id(kind: &TypeKind) -> Option<TypeId> {
         | TypeKind::StringLiteral(_)
         | TypeKind::Union(_)
         | TypeKind::Object(_)
-        | TypeKind::Array(_) => None,
+        | TypeKind::Array(_)
+        | TypeKind::Function(_)
+        | TypeKind::ClassConstructor(_) => None,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::mem::size_of;
+
     use super::{NumberLiteral, ObjectTypeProperty, TypeKind, TypeStore};
 
     #[test]
@@ -455,6 +538,11 @@ mod tests {
         assert_eq!(types.intern(TypeKind::String), primitives.string);
         assert_eq!(types.kind(primitives.number), Some(&TypeKind::Number));
         assert_eq!(types.len(), 10);
+    }
+
+    #[test]
+    fn type_key_stays_compact_for_common_paths() {
+        assert!(size_of::<TypeKind>() <= 32);
     }
 
     #[test]
@@ -537,6 +625,31 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(types.display(first).to_string(), "number[]");
         assert_eq!(types.display(nested).to_string(), "number[][]");
+    }
+
+    #[test]
+    fn functions_are_canonicalized_by_annotated_shape() {
+        let mut types = TypeStore::new();
+        let primitives = types.primitives();
+        let first = types.function([primitives.string, primitives.number], primitives.boolean);
+        let second = types.function([primitives.string, primitives.number], primitives.boolean);
+
+        assert_eq!(first, second);
+        assert_eq!(
+            types.display(first).to_string(),
+            "(arg0: string, arg1: number) => boolean"
+        );
+    }
+
+    #[test]
+    fn class_constructor_side_is_distinct_from_its_instance_shape() {
+        let mut types = TypeStore::new();
+        let instance = types.object([]);
+        let constructor = types.class_constructor("Empty", []);
+
+        assert_ne!(instance, constructor);
+        assert_eq!(types.display(instance).to_string(), "{}");
+        assert_eq!(types.display(constructor).to_string(), "typeof Empty");
     }
 
     #[test]

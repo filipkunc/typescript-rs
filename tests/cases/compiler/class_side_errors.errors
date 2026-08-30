@@ -1,0 +1,9 @@
+TS2322@4:5 [check] Type 'string' is not assignable to type 'number'.
+TS2322@5:12 [check] Type 'number' is not assignable to type 'string'.
+TS2322@10:9 [check] Type 'string' is not assignable to type 'number'.
+TS2554@14:1 [check] Expected 1 arguments, but got 0.
+TS2345@15:9 [check] Argument of type 'string' is not assignable to parameter of type 'number'.
+TS2322@18:7 [check] Type 'number' is not assignable to type 'string'.
+TS2345@19:10 [check] Argument of type 'number' is not assignable to parameter of type 'string'.
+TS2339@20:5 [check] Property 'value' does not exist on type 'typeof Box'.
+TS2576@21:5 [check] Property 'label' does not exist on type 'Box'. Did you mean to access the static member 'Box.label' instead?

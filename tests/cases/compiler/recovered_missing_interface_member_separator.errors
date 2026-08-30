@@ -1,0 +1,2 @@
+TS1005@2:33 [parse] ';' expected.
+TS2322@4:7 [check] Type 'string' is not assignable to type 'number'.

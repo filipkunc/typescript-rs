@@ -1,0 +1,1611 @@
+{
+  "schemaVersion": 1,
+  "implementation": "typescript-go",
+  "revision": "89d5d5b2849a0db0957065889ca58536fa6d2e4a",
+  "cases": [
+    {
+      "id": "malformed_expression",
+      "source": "let target = 1;\ntarget = ...;\nconst broken: number = :;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 15,
+          "names": [
+            "target"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 15,
+          "end": 24,
+          "names": []
+        },
+        {
+          "kind": "EmptyStatement",
+          "start": 28,
+          "end": 29,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 29,
+          "end": 55,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 55,
+          "end": 72,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "later",
+        "target"
+      ],
+      "bindingNames": [
+        "broken",
+        "later",
+        "target"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 25,
+          "end": 28,
+          "message": "Expression expected."
+        },
+        {
+          "code": 1109,
+          "start": 53,
+          "end": 54,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "ExpressionStatement",
+          "start": 15,
+          "end": 24,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 24,
+          "end": 24,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "BinaryExpression"
+          ]
+        },
+        {
+          "kind": "EmptyStatement",
+          "start": 28,
+          "end": 29,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        },
+        {
+          "kind": "VariableDeclarationList",
+          "start": 29,
+          "end": 54,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 52,
+          "end": 52,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_array_operand",
+      "source": "let target = 1;\nconst values = [target = , ... , 2];\nconst later = 3;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 15,
+          "names": [
+            "target"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 15,
+          "end": 52,
+          "names": [
+            "values"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 52,
+          "end": 69,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "later",
+        "target",
+        "values"
+      ],
+      "bindingNames": [
+        "later",
+        "target",
+        "values"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 41,
+          "end": 42,
+          "message": "Expression expected."
+        },
+        {
+          "code": 1109,
+          "start": 47,
+          "end": 48,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 40,
+          "end": 40,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "ArrayLiteralExpression",
+            "BinaryExpression"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 46,
+          "end": 46,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "ArrayLiteralExpression",
+            "SpreadElement"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_assignment_rhs",
+      "source": "let target: number = 1;\ntarget = ;\nconst intact: number = \"wrong\";\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 23,
+          "names": [
+            "target"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 23,
+          "end": 34,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 34,
+          "end": 66,
+          "names": [
+            "intact"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "intact",
+        "target"
+      ],
+      "bindingNames": [
+        "intact",
+        "target"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 33,
+          "end": 34,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 32,
+          "end": 32,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "BinaryExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_call_argument",
+      "source": "function check(first: number, second: number): void {}\ncheck(, 2);\nconst later = 3;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 54,
+          "names": [
+            "check"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 54,
+          "end": 66,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 66,
+          "end": 83,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "check",
+        "later"
+      ],
+      "bindingNames": [
+        "check",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1135,
+          "start": 61,
+          "end": 62,
+          "message": "Argument expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "NumericLiteral",
+          "start": 62,
+          "end": 64,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "CallExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_call_closer",
+      "source": "function check(value: number): void {}\ncheck(\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 38,
+          "names": [
+            "check"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 38,
+          "end": 45,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 45,
+          "end": 62,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "check",
+        "later"
+      ],
+      "bindingNames": [
+        "check",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1135,
+          "start": 46,
+          "end": 51,
+          "message": "Argument expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "CallExpression",
+          "start": 38,
+          "end": 45,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_class_closer",
+      "source": "class Box { value: number = 1;\n",
+      "topLevel": [
+        {
+          "kind": "class",
+          "start": 0,
+          "end": 30,
+          "names": [
+            "Box"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box"
+      ],
+      "bindingNames": [
+        "Box"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 31,
+          "end": 31,
+          "message": "'}' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "ClassDeclaration",
+          "start": 0,
+          "end": 30,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_class_member",
+      "source": "class Box { first: number = 1 second: string = \"ok\"; }\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "class",
+          "start": 0,
+          "end": 54,
+          "names": [
+            "Box"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 54,
+          "end": 71,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box",
+        "later"
+      ],
+      "bindingNames": [
+        "Box",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 30,
+          "end": 36,
+          "message": "';' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "PropertyDeclaration",
+          "start": 11,
+          "end": 29,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ClassDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_declaration_name",
+      "source": "const = 1;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 7,
+          "names": []
+        },
+        {
+          "kind": "expression",
+          "start": 7,
+          "end": 10,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 10,
+          "end": 27,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "later"
+      ],
+      "bindingNames": [
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1134,
+          "start": 6,
+          "end": 7,
+          "message": "Variable declaration expected."
+        },
+        {
+          "code": 1134,
+          "start": 8,
+          "end": 9,
+          "message": "Variable declaration expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "VariableStatement",
+          "start": 0,
+          "end": 7,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        },
+        {
+          "kind": "VariableDeclarationList",
+          "start": 0,
+          "end": 7,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_function_body_closer",
+      "source": "function f(): number {\n  return 1;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 34,
+          "names": [
+            "f"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "f"
+      ],
+      "bindingNames": [
+        "f"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 35,
+          "end": 35,
+          "message": "'}' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Block",
+          "start": 20,
+          "end": 34,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_initializer",
+      "source": "const broken: number = ;\nconst intact: number = \"wrong\";\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 24,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 24,
+          "end": 56,
+          "names": [
+            "intact"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "intact"
+      ],
+      "bindingNames": [
+        "broken",
+        "intact"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 23,
+          "end": 24,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 22,
+          "end": 22,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_interface_closer",
+      "source": "interface Box {\n  value: number;\n",
+      "topLevel": [
+        {
+          "kind": "interface",
+          "start": 0,
+          "end": 32,
+          "names": [
+            "Box"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box"
+      ],
+      "bindingNames": [
+        "Box"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 33,
+          "end": 33,
+          "message": "'}' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "InterfaceDeclaration",
+          "start": 0,
+          "end": 32,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_interface_member_separator",
+      "source": "interface Box { first: number second: string }\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "interface",
+          "start": 0,
+          "end": 46,
+          "names": [
+            "Box"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 46,
+          "end": 63,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box",
+        "later"
+      ],
+      "bindingNames": [
+        "Box",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 30,
+          "end": 36,
+          "message": "';' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "PropertySignature",
+          "start": 15,
+          "end": 29,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "InterfaceDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_interface_member_type",
+      "source": "interface Box { value: }\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "interface",
+          "start": 0,
+          "end": 24,
+          "names": [
+            "Box"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 24,
+          "end": 41,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box",
+        "later"
+      ],
+      "bindingNames": [
+        "Box",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1110,
+          "start": 23,
+          "end": 24,
+          "message": "Type expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "TypeReference",
+          "start": 22,
+          "end": 22,
+          "missing": true,
+          "directError": false,
+          "parentPath": [
+            "SourceFile",
+            "InterfaceDeclaration",
+            "PropertySignature"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 22,
+          "end": 22,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "InterfaceDeclaration",
+            "PropertySignature",
+            "TypeReference"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_list_delimiters",
+      "source": "const object = { first: 1 second: 2 };\nconst container = { values: [1, 2 };\nfunction check(first: number, second: number): void {}\ncheck(1 2);\nconst later = 3;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 38,
+          "names": [
+            "object"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 38,
+          "end": 75,
+          "names": [
+            "container"
+          ]
+        },
+        {
+          "kind": "function",
+          "start": 75,
+          "end": 130,
+          "names": [
+            "check"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 130,
+          "end": 142,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 142,
+          "end": 159,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "check",
+        "container",
+        "later",
+        "object"
+      ],
+      "bindingNames": [
+        "check",
+        "container",
+        "later",
+        "object"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 26,
+          "end": 32,
+          "message": "',' expected."
+        },
+        {
+          "code": 1005,
+          "start": 73,
+          "end": 74,
+          "message": "',' expected."
+        },
+        {
+          "code": 1005,
+          "start": 139,
+          "end": 140,
+          "message": "',' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 25,
+          "end": 32,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "ObjectLiteralExpression",
+            "PropertyAssignment"
+          ]
+        },
+        {
+          "kind": "ArrayLiteralExpression",
+          "start": 66,
+          "end": 72,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "ObjectLiteralExpression",
+            "PropertyAssignment"
+          ]
+        },
+        {
+          "kind": "NumericLiteral",
+          "start": 138,
+          "end": 140,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "CallExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_member_name",
+      "source": "interface Box { value: number; }\ndeclare const box: Box;\nbox.;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "interface",
+          "start": 0,
+          "end": 32,
+          "names": [
+            "Box"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 32,
+          "end": 56,
+          "names": [
+            "box"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 56,
+          "end": 62,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 62,
+          "end": 79,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Box",
+        "box",
+        "later"
+      ],
+      "bindingNames": [
+        "Box",
+        "box",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1003,
+          "start": 61,
+          "end": 62,
+          "message": "Identifier expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 61,
+          "end": 61,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "PropertyAccessExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_object_value",
+      "source": "const value = { missing: , intact: 1 };\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 39,
+          "names": [
+            "value"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 39,
+          "end": 56,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "later",
+        "value"
+      ],
+      "bindingNames": [
+        "later",
+        "value"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 25,
+          "end": 26,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 24,
+          "end": 24,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "ObjectLiteralExpression",
+            "PropertyAssignment"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_optional_member_name",
+      "source": "declare const box: { value: number };\nbox?.;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "variable",
+          "start": 0,
+          "end": 37,
+          "names": [
+            "box"
+          ]
+        },
+        {
+          "kind": "expression",
+          "start": 37,
+          "end": 44,
+          "names": []
+        },
+        {
+          "kind": "variable",
+          "start": 44,
+          "end": 61,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "box",
+        "later"
+      ],
+      "bindingNames": [
+        "box",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1003,
+          "start": 43,
+          "end": 44,
+          "message": "Identifier expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 43,
+          "end": 43,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "ExpressionStatement",
+            "PropertyAccessExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_parameter",
+      "source": "function broken(, second: number): void {}\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 42,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 42,
+          "end": 59,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "later"
+      ],
+      "bindingNames": [
+        "broken",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1138,
+          "start": 16,
+          "end": 17,
+          "message": "Parameter declaration expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 17,
+          "end": 24,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "Parameter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_parameter_closer",
+      "source": "interface Handler {\n  run(value: number\n}\nconst later = 1;\n",
+      "topLevel": [
+        {
+          "kind": "interface",
+          "start": 0,
+          "end": 41,
+          "names": [
+            "Handler"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 41,
+          "end": 58,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Handler",
+        "later"
+      ],
+      "bindingNames": [
+        "Handler",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 40,
+          "end": 41,
+          "message": "',' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "MethodSignature",
+          "start": 19,
+          "end": 39,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "InterfaceDeclaration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_parameter_closer_eof",
+      "source": "declare function trailing(value: number\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 39,
+          "names": [
+            "trailing"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "trailing"
+      ],
+      "bindingNames": [
+        "trailing"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 40,
+          "end": 40,
+          "message": "')' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "FunctionDeclaration",
+          "start": 0,
+          "end": 39,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_parameter_delimiter",
+      "source": "function format(value: number suffix: string): string {\n  return suffix;\n}\nconst later = 1;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 74,
+          "names": [
+            "format"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 74,
+          "end": 91,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "format",
+        "later"
+      ],
+      "bindingNames": [
+        "format",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1005,
+          "start": 30,
+          "end": 36,
+          "message": "',' expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 29,
+          "end": 36,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "Parameter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_parameter_type",
+      "source": "function broken(value:): void {}\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 32,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 32,
+          "end": 49,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "later"
+      ],
+      "bindingNames": [
+        "broken",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1110,
+          "start": 22,
+          "end": 23,
+          "message": "Type expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "TypeReference",
+          "start": 22,
+          "end": 22,
+          "missing": true,
+          "directError": false,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "Parameter"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 22,
+          "end": 22,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "Parameter",
+            "TypeReference"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_return_expression_operand",
+      "source": "function f(): number {\n  return 1 +\n}\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 37,
+          "names": [
+            "f"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 37,
+          "end": 54,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "f",
+        "later"
+      ],
+      "bindingNames": [
+        "f",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1109,
+          "start": 36,
+          "end": 37,
+          "message": "Expression expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "Identifier",
+          "start": 35,
+          "end": 35,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "Block",
+            "ReturnStatement",
+            "BinaryExpression"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_return_type",
+      "source": "declare function broken(): ;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "function",
+          "start": 0,
+          "end": 28,
+          "names": [
+            "broken"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 28,
+          "end": 45,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "broken",
+        "later"
+      ],
+      "bindingNames": [
+        "broken",
+        "later"
+      ],
+      "diagnostics": [
+        {
+          "code": 1110,
+          "start": 27,
+          "end": 28,
+          "message": "Type expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "TypeReference",
+          "start": 26,
+          "end": 26,
+          "missing": true,
+          "directError": false,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 26,
+          "end": 26,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "FunctionDeclaration",
+            "TypeReference"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing_type",
+      "source": "type Broken = ;\ntype Values = number[;\nconst value: = 1;\nconst later = 2;\n",
+      "topLevel": [
+        {
+          "kind": "typeAlias",
+          "start": 0,
+          "end": 15,
+          "names": [
+            "Broken"
+          ]
+        },
+        {
+          "kind": "typeAlias",
+          "start": 15,
+          "end": 38,
+          "names": [
+            "Values"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 38,
+          "end": 56,
+          "names": [
+            "value"
+          ]
+        },
+        {
+          "kind": "variable",
+          "start": 56,
+          "end": 73,
+          "names": [
+            "later"
+          ]
+        }
+      ],
+      "declarationNames": [
+        "Broken",
+        "Values",
+        "later",
+        "value"
+      ],
+      "bindingNames": [
+        "Broken",
+        "Values",
+        "later",
+        "value"
+      ],
+      "diagnostics": [
+        {
+          "code": 1110,
+          "start": 14,
+          "end": 15,
+          "message": "Type expected."
+        },
+        {
+          "code": 1005,
+          "start": 37,
+          "end": 38,
+          "message": "']' expected."
+        },
+        {
+          "code": 1110,
+          "start": 52,
+          "end": 53,
+          "message": "Type expected."
+        }
+      ],
+      "recoveryNodes": [
+        {
+          "kind": "TypeReference",
+          "start": 13,
+          "end": 13,
+          "missing": true,
+          "directError": false,
+          "parentPath": [
+            "SourceFile",
+            "TypeAliasDeclaration"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 13,
+          "end": 13,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "TypeAliasDeclaration",
+            "TypeReference"
+          ]
+        },
+        {
+          "kind": "ArrayType",
+          "start": 29,
+          "end": 37,
+          "missing": false,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "TypeAliasDeclaration"
+          ]
+        },
+        {
+          "kind": "TypeReference",
+          "start": 51,
+          "end": 51,
+          "missing": true,
+          "directError": false,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration"
+          ]
+        },
+        {
+          "kind": "Identifier",
+          "start": 51,
+          "end": 51,
+          "missing": true,
+          "directError": true,
+          "parentPath": [
+            "SourceFile",
+            "VariableStatement",
+            "VariableDeclarationList",
+            "VariableDeclaration",
+            "TypeReference"
+          ]
+        }
+      ]
+    }
+  ]
+}

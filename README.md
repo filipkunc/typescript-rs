@@ -22,6 +22,9 @@ built-in `Array<T>` types with contextually typed array expressions, and non-gen
 type aliases and property-only interfaces on explicitly typed variable declarations. Object and
 array assignability are structural, including objects and arrays nested in any combination and
 inside union targets.
+Statically named interface members support property reads and explicitly annotated method calls.
+The first bounded class milestone supports annotated public instance/static properties and methods,
+constructors, `new`, and distinct instance and constructor/static sides.
 Fresh object literals reject excess properties, structural diagnostics point to nested properties
 and array elements, and negative numeric literals are supported. Built-in `Array<T>` is a syntax
 rule within that existing subset and does not introduce general generics.
@@ -38,7 +41,8 @@ including exported declarations, with required or optional statically named prop
 references compose with the existing aliases, object and array shapes, unions, and annotated
 function parameters and returns. Interfaces remain structural and reuse canonical object types.
 Inheritance, declaration merging, recursion, generics, callable or method signatures, index
-signatures, and member access remain outside this milestone.
+signatures, and member access remain outside that historical property-only milestone; statically
+named method signatures and member access are added by the later class prerequisite.
 
 The completed **basic expressions** slice records primitive and currently supported structural
 types for simple identifier bindings, whether inferred from an initializer or supplied by an
@@ -48,12 +52,37 @@ remain outside this slice. For common incomplete-expression input, the diagnosti
 turns Oxc's generic fatal parse error into the corresponding TypeScript `TS1109` or `TS1128`
 diagnostic so partially typed editor input is easier to compare.
 
-The first **editor-recovery** integration opts the single-file checker into the pinned Oxc fork's
-editor mode. A variable initializer missing after `=` is retained as a zero-width
-`MissingExpression` at a safe comma, semicolon, closing-brace, or EOF boundary. `tsrs` reports the
-syntax error without assigning a type to that node and continues checking independent later code.
-Other missing expressions and malformed syntax still follow Oxc's existing behavior until their
-grammar areas receive focused recovery support.
+The **editor-recovery** integration opts the single-file checker into the pinned Oxc fork's editor
+mode. A variable initializer missing after `=` is retained as a zero-width `MissingExpression` at
+a safe comma, semicolon, closing-brace, or EOF boundary. The next local slice applies the same node
+to a missing simple or compound assignment right-hand side at a source/block semicolon,
+closing-brace, or EOF boundary. A third slice recovers missing object-property values at an owned
+comma or closing-brace boundary, including inside nested objects, while continuing to check
+trustworthy sibling properties. Array assignment RHS and spread operands similarly recover at
+owned commas or closing brackets without changing valid sparse-array holes. Calls recover empty
+argument slots, assignment RHS values, and spread operands at owned commas/closing parentheses.
+The same explicit list contexts recover missing commas and safe missing or nested-mismatched
+`}`, `]`, and `)` tokens. Punctuation recovery is recorded as zero-width parser metadata because
+there is no expression-shaped AST slot for it.
+Incomplete annotations, aliases, union constituents, and object-property types recover as a
+zero-width `MissingType`. Safe missing `]`, `)`, and `>` type closers use the same parser metadata
+model. The checker leaves a top-level missing type unresolved and gives a directly missing object
+property type a cascade-suppressing `any` identity so source-backed sibling errors remain visible.
+At source/block initializer and assignment slots, unexpected `:` and `...` text is retained as a
+non-empty `MalformedExpression`, distinct from a zero-width missing expression, and receives the
+same dependent-diagnostic suppression.
+Stage 3 adds parameter slots, parameter/body delimiters, return-expression operands, interface
+member types/separators/closers, and missing static or optional member names. A missing member name
+retains its real object in `MissingMemberExpression`; an empty parameter is metadata-only and
+causes `tsrs` to suppress the incomplete callable signature rather than inventing a binding.
+Stage 4 adds a class-member context for missing same-line property separators and an EOF class-body
+closer. Both remain punctuation metadata, so the class checker retains real instance/static members.
+Stage 5 recovers a call closer before a following declaration and retains a nameless variable
+declaration as an empty declarator list, without inventing a symbol. All 25 pinned TypeScript-Go
+manifest cases now participate in exact parser/binder parity.
+`tsrs` reports the syntax error without assigning a type to the missing node and continues checking
+independent code. Other missing expressions and malformed syntax still follow Oxc's existing
+behavior until their grammar areas receive focused recovery support.
 
 ## Try it
 
@@ -81,7 +110,11 @@ The pinned [Oxc playground](https://github.com/filipkunc/playground) is availabl
 provides Monaco source editing, AST exploration, diagnostics, scopes, symbols, and control-flow
 visualization without using a published Oxc package.
 The sidebar displays `fork @<sha>` from the linked checkout and points to the corresponding
-`filipkunc/oxc` commit, making the parser implementation under review explicit.
+`filipkunc/oxc` commit, making the parser implementation under review explicit. The Recovery output
+tab uses a parse-only inspection boundary and can compare Normal and Editor mode without sending a
+recovered tree through formatting, transforms, minification, code generation, or ESTree
+serialization. Named examples cover the Stage 2 expression/list/type edits, Stage 3 function and
+interface edits, and the Stage 4 class-member separator/closer path.
 
 With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 
@@ -107,9 +140,15 @@ dirty.
 keeps full snapshots of open documents and publishes parser, binder, and checker diagnostics on
 open and after every change. Diagnostics are cleared when a document becomes valid or is closed.
 The adapter converts the checker's UTF-8 byte ranges to the protocol's UTF-16 positions. In the
-first supported recovery shape, a missing variable initializer no longer hides type diagnostics in
-later declarations, and completing the initializer removes the syntax diagnostic on the next
-full-document change.
+supported recovery shapes, a missing variable initializer, assignment right-hand side, or object
+property/array/call operand, list delimiter, type annotation, supported type closer, or supported
+source-backed malformed expression no longer hides independent type diagnostics. The same applies
+to the supported function, parameter, interface, class, missing-call-closer, and
+missing-declaration-name edits documented in the
+[Stage 3 recovery increment](docs/oxc-function-interface-recovery.md),
+[class increment](docs/oxc-class-recovery.md), and
+[Stage 5 decision](docs/oxc-recovery-upstreaming.md). Completing the edit removes its syntax
+diagnostic on the next full-document change.
 
 This is intentionally a live single-document view of the checker. It does not yet load
 `tsconfig.json`, discover unopened files, resolve imports, or provide hover, completion, navigation,
@@ -196,9 +235,17 @@ strict, ESNext target/module/library, no-emit profile. A mismatch is evidence to
 or checker; blessing the local `.errors` baseline does not resolve it. Update
 `tests/tsgo-reference.txt` only as an explicit, reviewed reference-version change.
 
+Parser recovery also has an offline [cross-parser manifest](docs/oxc-recovery-manifest.md). Its
+checked-in TypeScript-Go probe and 25 narrow edit-state cases pin diagnostics, surviving structure,
+declarations, and bindings; all 25 cases participate in exact Oxc parity. Regeneration is
+explicit; ordinary Rust tests read the checked JSON and never require Go, a TypeScript-Go checkout,
+or network access.
+
 See [Goals.md](Goals.md), [architecture](docs/architecture.md),
 [bootstrap research](docs/bootstrap-research.md), and the
 [Oxc editor-recovery plan](docs/oxc-editor-recovery-plan.md) for scope and design rationale. The
+[recovery status ledger](docs/oxc-editor-recovery-status.md) records implementation evidence and
+remaining requirements. The
 [first fork change](docs/oxc-first-editor-recovery-change.md) defines the initial missing-expression
 AST slice, and the [recovery playground](docs/oxc-recovery-playground.md) defines its visual review
 workflow.

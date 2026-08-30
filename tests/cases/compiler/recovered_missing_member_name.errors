@@ -1,0 +1,2 @@
+TS1003@4:5 [parse] Identifier expected.
+TS2322@5:7 [check] Type 'string' is not assignable to type 'number'.
