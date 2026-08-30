@@ -2,7 +2,7 @@
 
 ## Outcome
 
-The local editor-recovery prototype now matches the pinned TypeScript-Go manifest on all 25 cases.
+The local editor-recovery prototype now matches the pinned TypeScript-Go manifest on all 27 cases.
 The final two grammar reductions preserve a call when a following declaration owns its missing
 closer, and preserve `const = 1` as a nameless, empty declaration without inventing a semantic
 binding. A deterministic deletion matrix covers twelve token removals. In addition to the original
@@ -103,6 +103,6 @@ transport, project discovery, or type relations—as a material bottleneck.
 
 For now, keep the exact fork boundary and continue to return only owned diagnostics from
 `check_source`. As upstream slices land, remove equivalent local changes one slice at a time, rerun
-the 25-case manifest and all release gates, and compare the resulting normal/editor ASTs. The fork
+the 27-case manifest and all release gates, and compare the resulting normal/editor ASTs. The fork
 can be retired only when upstream supplies every recovery representation and semantic guarantee
 used by `tsrs`; diagnostic-text similarity alone is insufficient.

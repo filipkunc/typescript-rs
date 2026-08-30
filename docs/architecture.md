@@ -21,7 +21,12 @@ The Oxc source baseline is pinned as the `vendor/oxc` Git submodule so editor-re
 the AST, parser, generated visitors, and semantic builder can be developed and tested together.
 Cargo resolves every Oxc crate from that checkout; normal parser behavior remains the baseline
 and the first opt-in recovery slice described in the [recovery plan](oxc-editor-recovery-plan.md)
-preserves a missing variable initializer as `MissingExpression`. The next local slice adds explicit
+preserves a missing variable initializer as `MissingExpression`. The active-context
+resynchronization slice adds a variable-declaration context and asks all relevant active contexts
+whether they own the token after a missing initializer. This lets an enclosing source or block
+resume at an unambiguous following `const` or `var`, even without a newline, while keeping the
+boundary token unconsumed. See
+[`oxc-active-context-resynchronization.md`](oxc-active-context-resynchronization.md). The next local slice adds explicit
 source/block recovery contexts and preserves a missing assignment right-hand side at boundaries
 owned by those contexts. The object-value slice adds an object-property list context, leaves commas
 and closing braces to that owner, and skips only the recovered property's type relation so sibling
@@ -59,7 +64,7 @@ across missing separators and records an EOF closer as punctuation metadata, as 
 Stage 5 adds a declaration boundary for an unclosed call followed by `const` or `var`, and preserves
 a statement-position variable declaration missing its name as an empty declarator list. Two owned
 recovery events retain the exact parser diagnostics without manufacturing a binding. The complete
-25-case manifest, deletion matrix, LSP edit sequence, upstream slicing, and decision to defer
+27-case manifest, deletion matrix, LSP edit sequence, upstream slicing, and decision to defer
 fine-grained incremental parsing are recorded in
 [`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md).
 The larger seven-version editor trace, its performance evidence, known nested-call limitation, and
@@ -161,6 +166,24 @@ This tooling milestone does not yet define `Program`: it neither scans a workspa
 `tsconfig.json`, watches unopened files, resolves modules, or caches semantic state. Project-wide
 diagnostics and language features must wait for stable file identities, configuration ownership,
 module resolution, and dependency tracking.
+
+## Current tooling milestone: browser checker lab
+
+The pinned Oxc playground also exposes a secondary single-document tsrs surface. A build-only
+NAPI/WASI adapter crate depends on the safe checker library and maps the result of the same
+`check_source(file_name, source_text)` entry point to owned JavaScript diagnostic objects. Generated
+NAPI platform shims therefore remain outside the checker's `unsafe_code = "forbid"` boundary. The
+checker crate stays the sole owner of type and signature semantics, while Tokio and the LSP server
+remain native-only dependencies so the library can compile for WASI.
+
+The adapter exposes only code, message, phase, and an optional UTF-8 byte range. Oxc AST nodes,
+arena lifetimes, scopes, symbols, references, `TypeId`, and `SignatureId` remain inside one native
+check. The playground runs Oxc inspection and tsrs checking independently against the same source,
+then converts tsrs byte ranges to Monaco's UTF-16 coordinate system. This is a demonstration and
+visual-diagnostics lab, not an alternate language server: it has no document lifecycle, project
+model, `tsconfig.json`, module resolution, hover, completion, navigation, or incremental state. The
+VS Code LSP remains the primary real-editor workflow. The complete boundary and verification plan
+are recorded in [`tsrs-playground-milestone.md`](tsrs-playground-milestone.md).
 
 ## Completed checker milestone: callable members and class sides
 

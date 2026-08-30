@@ -56,6 +56,8 @@ const REGISTERED_CASES: &[&str] = &[
     "recovered_missing_declaration_name.ts",
     "recovered_missing_function_body_closer.ts",
     "recovered_missing_initializer.ts",
+    "recovered_missing_initializer_before_newline_declaration.ts",
+    "recovered_missing_initializer_before_same_line_declaration.ts",
     "recovered_missing_interface_closer.ts",
     "recovered_missing_interface_member_separator.ts",
     "recovered_missing_interface_member_type.ts",
@@ -85,6 +87,16 @@ fn primitive_literals() {
 #[test]
 fn recovered_missing_initializer() {
     run_case("recovered_missing_initializer.ts");
+}
+
+#[test]
+fn recovered_missing_initializer_before_newline_declaration() {
+    run_case("recovered_missing_initializer_before_newline_declaration.ts");
+}
+
+#[test]
+fn recovered_missing_initializer_before_same_line_declaration() {
+    run_case("recovered_missing_initializer_before_same_line_declaration.ts");
 }
 
 #[test]

@@ -156,6 +156,11 @@ const broken: number = ;
 const intact: number = "wrong";
 "#;
 
+const RECOVERED_MISSING_INITIALIZER_BEFORE_DECLARATION_SOURCE: &str = r#"
+const broken =
+const intact: number = "wrong";
+"#;
+
 const RECOVERED_MISSING_ASSIGNMENT_RHS_SOURCE: &str = r#"
 let target: number = 1;
 target = ;
@@ -304,12 +309,7 @@ fn class_benchmarks(criterion: &mut Criterion) {
 }
 
 fn editor_recovery_benchmarks(criterion: &mut Criterion) {
-    criterion.bench_function(
-        "parse_bind_check/editor_recovery_missing_initializer",
-        |bencher| {
-            bencher.iter(|| check_source("benchmark.ts", RECOVERED_MISSING_INITIALIZER_SOURCE));
-        },
-    );
+    editor_initializer_recovery_benchmarks(criterion);
     criterion.bench_function(
         "parse_bind_check/editor_recovery_missing_assignment_rhs",
         |bencher| {
@@ -402,6 +402,26 @@ fn editor_recovery_benchmarks(criterion: &mut Criterion) {
         "parse_bind_check/editor_recovery_malformed_expression",
         |bencher| {
             bencher.iter(|| check_source("benchmark.ts", RECOVERED_MALFORMED_EXPRESSION_SOURCE));
+        },
+    );
+}
+
+fn editor_initializer_recovery_benchmarks(criterion: &mut Criterion) {
+    criterion.bench_function(
+        "parse_bind_check/editor_recovery_missing_initializer",
+        |bencher| {
+            bencher.iter(|| check_source("benchmark.ts", RECOVERED_MISSING_INITIALIZER_SOURCE));
+        },
+    );
+    criterion.bench_function(
+        "parse_bind_check/editor_recovery_initializer_before_declaration",
+        |bencher| {
+            bencher.iter(|| {
+                check_source(
+                    "benchmark.ts",
+                    RECOVERED_MISSING_INITIALIZER_BEFORE_DECLARATION_SOURCE,
+                )
+            });
         },
     );
 }

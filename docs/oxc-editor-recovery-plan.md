@@ -354,7 +354,7 @@ The
 non-empty `MalformedExpression` for supported unexpected initializer and assignment tokens, keeping
 source-backed malformed text distinct from zero-width missing syntax.
 
-The Stage 0 recovery-manifest format, pinned probe, and 25-case Stage 2–5 corpus are implemented as
+The Stage 0 recovery-manifest format, pinned probe, and 27-case Stage 2–5 corpus are implemented as
 described in
 [`oxc-recovery-manifest.md`](oxc-recovery-manifest.md). Ordinary tests compare the implemented
 grammar areas offline and do not invoke the external reference checkout.

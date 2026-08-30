@@ -1,0 +1,11 @@
+/node_modules/
+/target/
+/browser.js
+/index.js
+/tsrs.wasi-browser.js
+/tsrs.wasi.cjs
+/tsrs.wasi.d.cts
+/tsrs.wasm32-wasi.debug.wasm
+/tsrs.wasm32-wasi.wasm
+/wasi-worker-browser.mjs
+/wasi-worker.mjs

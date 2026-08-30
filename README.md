@@ -62,7 +62,11 @@ diagnostic so partially typed editor input is easier to compare.
 
 The **editor-recovery** integration opts the single-file checker into the pinned Oxc fork's editor
 mode. A variable initializer missing after `=` is retained as a zero-width `MissingExpression` at
-a safe comma, semicolon, closing-brace, or EOF boundary. The next local slice applies the same node
+a safe comma, semicolon, closing-brace, or EOF boundary. Active source/block and variable-declaration
+contexts also preserve an unambiguous following `const` or `var` statement, with or without a
+newline and without consuming its first token. The focused design is documented in
+[`docs/oxc-active-context-resynchronization.md`](docs/oxc-active-context-resynchronization.md).
+The next local slice applies the same node
 to a missing simple or compound assignment right-hand side at a source/block semicolon,
 closing-brace, or EOF boundary. A third slice recovers missing object-property values at an owned
 comma or closing-brace boundary, including inside nested objects, while continuing to check
@@ -86,7 +90,7 @@ causes `tsrs` to suppress the incomplete callable signature rather than inventin
 Stage 4 adds a class-member context for missing same-line property separators and an EOF class-body
 closer. Both remain punctuation metadata, so the class checker retains real instance/static members.
 Stage 5 recovers a call closer before a following declaration and retains a nameless variable
-declaration as an empty declarator list, without inventing a symbol. All 25 pinned TypeScript-Go
+declaration as an empty declarator list, without inventing a symbol. All 27 pinned TypeScript-Go
 manifest cases now participate in exact parser/binder parity.
 `tsrs` reports the syntax error without assigning a type to the missing node and continues checking
 independent code. Other missing expressions and malformed syntax still follow Oxc's existing
@@ -124,6 +128,16 @@ recovered tree through formatting, transforms, minification, code generation, or
 serialization. Named examples cover the Stage 2 expression/list/type edits, Stage 3 function and
 interface edits, and the Stage 4 class-member separator/closer path.
 
+The separate **tsrs Types** tab is a browser lab for the checker's supported single-file subset.
+It runs the same `check_source` entry point through a small WASM adapter, shows owned diagnostic
+codes/phases/messages, publishes Monaco markers, and highlights source ranges. Named examples cover
+JSON-shaped values, explicitly annotated callable expressions, and an incomplete-arrow recovery
+case. The browser converts the checker's UTF-8 byte ranges to Monaco UTF-16 offsets; no Oxc AST,
+scope, symbol, type, or signature identity crosses the JavaScript boundary. This lab complements
+the VS Code LSP workflow below rather than replacing it: the LSP remains the primary integration
+for document lifecycle and real editor behavior. The boundary and exclusions are specified in the
+[playground milestone](docs/tsrs-playground-milestone.md).
+
 With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 
 ```console
@@ -133,14 +147,15 @@ With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 # Start the local preview and open the printed URL
 ./scripts/oxc-playground serve
 
-# Rebuild after changing the Oxc fork or playground frontend
+# Rebuild after changing tsrs, the Oxc fork, or the playground frontend
 ./scripts/oxc-playground rebuild
 ```
 
 The setup build may take several minutes. Subsequent source editing in Monaco is immediate;
 `rebuild` is needed only after changing Rust or frontend implementation. The launcher restores the
-generated browser loader after bundling so building the playground does not leave `vendor/oxc`
-dirty.
+generated Oxc browser loader after bundling so building the playground does not leave `vendor/oxc`
+dirty. It also builds and links the local `napi/playground` tsrs WASM adapter before building the
+frontend.
 
 ## Language server
 
@@ -248,8 +263,8 @@ or checker; blessing the local `.errors` baseline does not resolve it. Update
 `tests/tsgo-reference.txt` only as an explicit, reviewed reference-version change.
 
 Parser recovery also has an offline [cross-parser manifest](docs/oxc-recovery-manifest.md). Its
-checked-in TypeScript-Go probe and 25 narrow edit-state cases pin diagnostics, surviving structure,
-declarations, and bindings; all 25 cases participate in exact Oxc parity. Regeneration is
+checked-in TypeScript-Go probe and 27 narrow edit-state cases pin diagnostics, surviving structure,
+declarations, and bindings; all 27 cases participate in exact Oxc parity. Regeneration is
 explicit; ordinary Rust tests read the checked JSON and never require Go, a TypeScript-Go checkout,
 or network access.
 

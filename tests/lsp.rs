@@ -217,7 +217,7 @@ fn checks_intact_code_while_a_variable_initializer_is_missing() {
                 "uri": "file:///workspace/recovery.ts",
                 "languageId": "typescript",
                 "version": 1,
-                "text": "const broken: number = ;\nconst intact: number = \"wrong\";"
+                "text": "const broken =\nconst intact: number = \"wrong\";"
             }
         }
     }));

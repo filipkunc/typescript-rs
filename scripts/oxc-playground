@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 oxc_dir="${repo_root}/vendor/oxc"
 playground_dir="${repo_root}/vendor/oxc-playground"
+tsrs_playground_dir="${repo_root}/napi/playground"
 browser_loader="${oxc_dir}/napi/playground/playground.wasi-browser.js"
 browser_loader_backup=""
 
@@ -26,7 +27,7 @@ require_command() {
 }
 
 check_submodules() {
-  if [[ ! -f "${oxc_dir}/Cargo.toml" || ! -f "${playground_dir}/package.json" ]]; then
+  if [[ ! -f "${oxc_dir}/Cargo.toml" || ! -f "${playground_dir}/package.json" || ! -f "${tsrs_playground_dir}/package.json" ]]; then
     echo "Initialize the playground submodules first:" >&2
     echo "  git submodule update --init --recursive" >&2
     exit 1
@@ -53,6 +54,10 @@ install_dependencies() {
     pnpm install --frozen-lockfile
   )
   (
+    cd "${tsrs_playground_dir}"
+    pnpm install --frozen-lockfile
+  )
+  (
     cd "${playground_dir}"
     pnpm install --frozen-lockfile
   )
@@ -63,7 +68,7 @@ build_playground() {
   require_command pnpm
   ensure_wasm_target
 
-  if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
+  if [[ ! -d "${oxc_dir}/node_modules" || ! -d "${tsrs_playground_dir}/node_modules" || ! -d "${playground_dir}/node_modules" ]]; then
     install_dependencies
   fi
 
@@ -77,6 +82,10 @@ build_playground() {
     cd "${oxc_dir}/napi/playground"
     pnpm run build-wasm-dev --release
     node scripts/patch.js
+  )
+  (
+    cd "${tsrs_playground_dir}"
+    pnpm build
   )
   (
     cd "${playground_dir}"

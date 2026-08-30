@@ -9,18 +9,18 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Published Oxc release previously used by `tsrs`: `0.147.0`
 - Upstream release revision (`crates_v0.147.0`): `4e258430cdb290598d9f2aeb2d13be598ec9e8e9`
 - Fork: <https://github.com/filipkunc/oxc>
-- Recovery branch: `feat/editor-missing-expression`
+- Recovery branch: `fix/initializer-declaration-resync`
 - Baseline recovery PR (merged): <https://github.com/filipkunc/oxc/pull/1>
 - Complete recovery integration PR (merged): <https://github.com/filipkunc/oxc/pull/2>
-- Pinned fork revision: `795610b4e40afe4fd1dde5f6d6f2a98190b7b499`
+- Pinned fork revision: `a2d89696356a5893bd2c0c49ad938088fad1819e`
 - Fork `main` merge commit: `3643874a88f474d6f5430c68138ebdd4426bc094`
 - Fork `main` integrated before merge: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
 - Playground fork: <https://github.com/filipkunc/playground>
-- Playground branch: `feat/editor-recovery-playground`
+- Playground branch: `feat/tsrs-checker-playground`
 - Baseline playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
 - Complete playground integration PR (merged): <https://github.com/filipkunc/playground/pull/2>
-- Pinned playground revision: `149c54a6b1161a462300ffbde84c5c3ab66f0eb4`
+- Pinned playground revision: `fe4bb0e161948fa15df6e34ac1df25a51ab06f26`
 - Playground `main` merge commit: `85265468c3043b29bff54fa5844850ad45d591a0`
 - `typescript-rs` integration PR (merged): <https://github.com/filipkunc/typescript-rs/pull/5>
 - `typescript-rs` `main` merge commit: `b14953f6c66c384872ecd0817180ec4443bbc8f3`
@@ -60,8 +60,9 @@ representation and focused source/block initializer and assignment recovery desc
 parameter, interface, and member-access increment described in
 [`oxc-function-interface-recovery.md`](oxc-function-interface-recovery.md), including
 `MissingMemberExpression` and metadata-only empty parameters. Stage 4 adds bounded class-member
-recovery, and Stage 5 completes all 25 manifest cases with missing call-closer and nameless variable
-declaration recovery. The proposed upstream slices and current decision to retain the fork are in
+recovery, and Stage 5 adds missing call-closer and nameless variable-declaration recovery. The
+active-context follow-up completes all 27 manifest cases by preserving a declaration after a
+missing initializer. The proposed upstream slices and current decision to retain the fork are in
 [`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md). The fork and playground branches are
 merged in the `filipkunc` repositories at the exact revisions above. The next step is the
 [maintainer design discussion](oxc-editor-recovery-design-review.md), not submission of the full

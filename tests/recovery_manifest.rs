@@ -23,6 +23,8 @@ const SUPPORTED_CASES: &[&str] = &[
     "missing_declaration_name",
     "missing_function_body_closer",
     "missing_initializer",
+    "missing_initializer_before_newline_declaration",
+    "missing_initializer_before_same_line_declaration",
     "missing_interface_closer",
     "missing_interface_member_separator",
     "missing_interface_member_type",
