@@ -5,8 +5,11 @@
 The local editor-recovery prototype now matches the pinned TypeScript-Go manifest on all 25 cases.
 The final two grammar reductions preserve a call when a following declaration owns its missing
 closer, and preserve `const = 1` as a nameless, empty declaration without inventing a semantic
-binding. A deterministic deletion matrix covers twelve token removals, and a four-version LSP test
-covers clean input, both new recovery shapes, and their repair.
+binding. A deterministic deletion matrix covers twelve token removals. In addition to the original
+four-version LSP test, a seven-version application-shaped trace now exercises a 30+ KiB,
+1,300+ line source and preserves type diagnostics on both sides of each edit. The consolidated
+evidence, limitation, maintainer questions, and Discord draft are in the
+[design-review note](oxc-editor-recovery-design-review.md).
 
 The fork remains necessary today. The upstream Oxc baseline does not contain the opt-in editor
 mode, recovery contexts, recovery AST variants, owned punctuation/declaration recovery metadata, or
@@ -43,30 +46,27 @@ conformance runs. Parser snapshots intentionally gain `Opened here` secondary la
 Babel and five TypeScript unmatched-delimiter diagnostics; repeat runs are stable and no test
 classification changes. Keep those reviewed snapshot updates with the delimiter-diagnostic slice.
 
-The tested integration commits and pull requests are published only in the `filipkunc` Oxc and
-playground forks, and `typescript-rs` records their exact revisions. No branch, pull request, or
-write targets the original `oxc-project` repositories because that publication scope was not
-authorized.
+The tested integration commits and pull requests were published and merged only in the `filipkunc`
+Oxc, playground, and `typescript-rs` repositories. `typescript-rs` records the exact component
+revisions. No branch, pull request, or write targets the original `oxc-project` repositories.
 
-## Publication order
+## Completed fork publication
 
-Publish the already-tested integration state in dependency order before constructing upstream
-topic branches:
+The integration state was published and merged in dependency order:
 
-1. Review and commit the Oxc fork working tree on `feat/editor-missing-expression`, including the
-   generated AST/visitor surfaces, focused tests, reviewed conformance snapshots, NAPI inspection,
-   and the normal/editor parser benchmark. Push it and require fork CI to pass.
-2. Commit the playground UI and browser smoke on `feat/editor-recovery-playground` against that
-   exact Oxc revision, then push it and require playground CI to pass.
-3. Advance both `tsrs` gitlinks, replace the pending-local compatibility text with the two exact
-   commit IDs, rerun the root gates, and publish the integration branch.
-4. Derive upstream topic branches from Oxc upstream `main` in the review-slice order above. Each
-   branch must include its focused tests and generated output and must pass independently; do not
-   present the large integration checkpoint as one upstream change.
+1. Oxc fork integration PR 2 merged after its dedicated fork CI passed.
+2. Playground integration PR 2 merged against the exact Oxc feature revision after its production,
+   lint, and browser checks passed.
+3. `typescript-rs` integration PR 5 merged with both gitlinks pinned to those tested feature
+   revisions after root and integration CI passed.
 
-The configured fork branches and their integration pull requests are published. The checkout has
-no separate Oxc upstream remote. GitHub CLI authentication through the host keyring is available,
-but original-project pull requests remain intentionally untouched.
+The next publication step is discussion, not an upstream pull request. After maintainer feedback,
+derive topic branches from current Oxc upstream `main` in the review-slice order above. Each branch
+must include focused tests and generated output and pass independently; do not present the large
+integration checkpoint as one upstream change.
+
+The configured fork branches and their integration pull requests are merged. The checkout has no
+separate Oxc upstream remote, and original-project pull requests remain intentionally untouched.
 
 ## Incremental parsing decision
 
@@ -85,6 +85,13 @@ Incremental parsing would also require decisions the bootstrap architecture inte
 made: stable file and node identities, arena lifetime ownership across snapshots, invalidation,
 dependency tracking, and a `Program` API. Adding those only to avoid the measured full-file costs
 would couple the checker to an unstable representation.
+
+The new application-shaped workload strengthens that decision beyond the earlier small strings. A
+complete 30+ KiB/1,300+ line snapshot measures 692–707 microseconds, a recovered-property snapshot
+740–759 microseconds, and the seven-snapshot delete/repair sequence 5.43–5.49 milliseconds on this
+machine. Both distant type diagnostics survive every snapshot. These measurements cover complete
+serial parse-bind-check work; they do not yet measure LSP queueing, allocations, or canceled
+versions.
 
 Revisit this decision after module resolution and the `Program` model exist, using recorded editor
 traces over realistic files. Measure end-to-end p50/p95 parse-bind-check latency, allocation volume,

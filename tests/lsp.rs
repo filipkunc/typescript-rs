@@ -7,6 +7,9 @@ use std::{
 
 use serde_json::{Value, json};
 
+#[path = "support/editor_trace.rs"]
+mod editor_trace;
+
 struct LspProcess {
     child: Child,
     stdin: ChildStdin,
@@ -1437,6 +1440,117 @@ fn publishes_deterministic_diagnostics_across_deletion_and_repair_sequence() {
         "params": null
     }));
     assert!(server.child.wait().expect("wait for LSP exit").success());
+}
+
+#[test]
+fn preserves_distant_diagnostics_across_a_large_editor_trace() {
+    use editor_trace::{
+        COMPLETE_EDIT, MISSING_CALL_CLOSER_EDIT, MISSING_DECLARATION_NAME_EDIT,
+        MISSING_PROPERTY_VALUE_EDIT, editor_trace_source,
+    };
+
+    let complete = editor_trace_source(COMPLETE_EDIT);
+    assert!(
+        complete.len() >= 30_000,
+        "trace should exercise a larger file"
+    );
+    assert!(complete.lines().count() >= 1_300);
+
+    let mut server = LspProcess::start();
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "processId": null,
+            "rootUri": null,
+            "capabilities": {}
+        }
+    }));
+    assert_eq!(server.receive()["id"], 1);
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "initialized",
+        "params": {}
+    }));
+
+    let uri = "file:///workspace/large-editor-trace.ts";
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {
+                "uri": uri,
+                "languageId": "typescript",
+                "version": 1,
+                "text": complete
+            }
+        }
+    }));
+    let opened = server.receive();
+    assert_trace_diagnostics(&opened, 1, &["TS2322", "TS2322"]);
+
+    let snapshots = [
+        (
+            2,
+            MISSING_PROPERTY_VALUE_EDIT,
+            &["TS1109", "TS2322", "TS2322"][..],
+        ),
+        (3, COMPLETE_EDIT, &["TS2322", "TS2322"][..]),
+        (
+            4,
+            MISSING_CALL_CLOSER_EDIT,
+            &["TS1135", "TS2322", "TS2554", "TS2322"][..],
+        ),
+        (5, COMPLETE_EDIT, &["TS2322", "TS2322"][..]),
+        (
+            6,
+            MISSING_DECLARATION_NAME_EDIT,
+            &["TS1134", "TS1134", "TS2322", "TS2322"][..],
+        ),
+        (7, COMPLETE_EDIT, &["TS2322", "TS2322"][..]),
+    ];
+
+    for (version, edit, expected_codes) in snapshots {
+        let published = publish_full_change(&mut server, uri, version, &editor_trace_source(edit));
+        assert_trace_diagnostics(&published, version, expected_codes);
+    }
+
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "shutdown",
+        "params": null
+    }));
+    assert_eq!(server.receive()["id"], 2);
+    server.send(&json!({
+        "jsonrpc": "2.0",
+        "method": "exit",
+        "params": null
+    }));
+    assert!(server.child.wait().expect("wait for LSP exit").success());
+}
+
+fn assert_trace_diagnostics(message: &Value, version: i32, expected_codes: &[&str]) {
+    assert_eq!(message["method"], "textDocument/publishDiagnostics");
+    assert_eq!(message["params"]["version"], version);
+    assert_eq!(diagnostic_codes(message), expected_codes);
+
+    let diagnostics = message["params"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics array");
+    let sentinel_lines = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic["code"] == "TS2322")
+        .map(|diagnostic| {
+            diagnostic["range"]["start"]["line"]
+                .as_u64()
+                .expect("diagnostic line")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(sentinel_lines.len(), 2);
+    assert!(sentinel_lines.first().is_some_and(|line| *line < 25));
+    assert!(sentinel_lines.last().is_some_and(|line| *line > 1_300));
 }
 
 fn diagnostic_codes(message: &Value) -> Vec<&str> {

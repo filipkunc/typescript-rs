@@ -149,6 +149,10 @@ missing-declaration-name edits documented in the
 [class increment](docs/oxc-class-recovery.md), and
 [Stage 5 decision](docs/oxc-recovery-upstreaming.md). Completing the edit removes its syntax
 diagnostic on the next full-document change.
+The LSP suite also runs a seven-version, 30+ KiB application-shaped trace and verifies that
+diagnostics before and after each incomplete edit remain stable. Its measurements and the draft
+upstream design discussion are recorded in the
+[design-review note](docs/oxc-editor-recovery-design-review.md).
 
 This is intentionally a live single-document view of the checker. It does not yet load
 `tsconfig.json`, discover unopened files, resolve imports, or provide hover, completion, navigation,
@@ -248,7 +252,8 @@ See [Goals.md](Goals.md), [architecture](docs/architecture.md),
 remaining requirements. The
 [first fork change](docs/oxc-first-editor-recovery-change.md) defines the initial missing-expression
 AST slice, and the [recovery playground](docs/oxc-recovery-playground.md) defines its visual review
-workflow.
+workflow. The [design-review note](docs/oxc-editor-recovery-design-review.md) consolidates the
+larger editor-trace evidence and a Discord draft for discussion before any original-repository PR.
 
 ## License
 

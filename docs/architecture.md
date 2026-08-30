@@ -62,6 +62,9 @@ recovery events retain the exact parser diagnostics without manufacturing a bind
 25-case manifest, deletion matrix, LSP edit sequence, upstream slicing, and decision to defer
 fine-grained incremental parsing are recorded in
 [`oxc-recovery-upstreaming.md`](oxc-recovery-upstreaming.md).
+The larger seven-version editor trace, its performance evidence, known nested-call limitation, and
+maintainer questions are consolidated in
+[`oxc-editor-recovery-design-review.md`](oxc-editor-recovery-design-review.md).
 `check_source` opts into editor mode, keeps the syntax diagnostic, and checks independent syntax in
 the recovered program while
 treating the missing expression as having no trustworthy type. Exact pinned fork and upstream
@@ -144,6 +147,8 @@ expression, punctuation, annotation, type closer, or supported source-backed mal
 removes its syntax diagnostic on the next full-document check.
 Supported parameter, function-body, return-expression, interface, and member-access edits use the
 same full-document recovery loop and retain independent diagnostics.
+An application-shaped 30+ KiB trace exercises seven complete snapshots and asserts that persistent
+diagnostics near the beginning and end of the file survive local deletion and repair edits.
 
 The LSP adapter is binary-only frontend code. It translates UTF-8 byte ranges to UTF-16 line and
 character positions and does not move Oxc arenas, AST nodes, scopes, or references across checks.
