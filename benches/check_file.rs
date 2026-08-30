@@ -1,6 +1,9 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use typescript_rs::check_source;
 
+#[path = "../tests/support/editor_trace.rs"]
+mod editor_trace;
+
 const SOURCE: &str = r#"
 export const title: string = "tsrs";
 export const version: number = 1;
@@ -264,6 +267,7 @@ fn check_file(criterion: &mut Criterion) {
     });
     class_benchmarks(criterion);
     editor_recovery_benchmarks(criterion);
+    large_editor_trace_benchmarks(criterion);
 }
 
 fn class_benchmarks(criterion: &mut Criterion) {
@@ -376,6 +380,40 @@ fn editor_recovery_benchmarks(criterion: &mut Criterion) {
             bencher.iter(|| check_source("benchmark.ts", RECOVERED_MALFORMED_EXPRESSION_SOURCE));
         },
     );
+}
+
+fn large_editor_trace_benchmarks(criterion: &mut Criterion) {
+    let large_complete = editor_trace::editor_trace_source(editor_trace::COMPLETE_EDIT);
+    criterion.bench_function("parse_bind_check/editor_trace_large_complete", |bencher| {
+        bencher.iter(|| check_source("benchmark.ts", &large_complete));
+    });
+
+    let large_recovered =
+        editor_trace::editor_trace_source(editor_trace::MISSING_PROPERTY_VALUE_EDIT);
+    criterion.bench_function(
+        "parse_bind_check/editor_trace_large_recovered_property",
+        |bencher| {
+            bencher.iter(|| check_source("benchmark.ts", &large_recovered));
+        },
+    );
+
+    let trace = [
+        editor_trace::COMPLETE_EDIT,
+        editor_trace::MISSING_PROPERTY_VALUE_EDIT,
+        editor_trace::COMPLETE_EDIT,
+        editor_trace::MISSING_CALL_CLOSER_EDIT,
+        editor_trace::COMPLETE_EDIT,
+        editor_trace::MISSING_DECLARATION_NAME_EDIT,
+        editor_trace::COMPLETE_EDIT,
+    ]
+    .map(editor_trace::editor_trace_source);
+    criterion.bench_function("parse_bind_check/editor_trace_large_sequence", |bencher| {
+        bencher.iter(|| {
+            for source in &trace {
+                let _ = check_source("benchmark.ts", source);
+            }
+        });
+    });
 }
 
 criterion_group!(benches, check_file);
