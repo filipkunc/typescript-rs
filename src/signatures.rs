@@ -10,7 +10,7 @@ pub(crate) struct SignatureParameter {
     pub(crate) diagnostic_name: String,
 }
 
-/// The explicitly annotated shape of a supported function declaration.
+/// The explicitly annotated shape of a supported callable declaration or expression.
 #[derive(Debug)]
 pub(crate) struct Signature {
     pub(crate) parameters: Box<[SignatureParameter]>,
@@ -18,8 +18,8 @@ pub(crate) struct Signature {
     pub(crate) return_diagnostic_name: String,
 }
 
-/// Signatures are kept separate from canonical `TypeId` identities until
-/// callable type relations are introduced.
+/// Signatures keep diagnostic metadata separate from the canonical
+/// `TypeKind::Function` identity used by structural callable shapes.
 #[derive(Debug, Default)]
 pub(crate) struct SignatureStore {
     signatures: Vec<Signature>,

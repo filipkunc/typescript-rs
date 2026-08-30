@@ -22,9 +22,10 @@ pub use diagnostic::{CheckResult, Diagnostic, Phase, TextRange};
 /// Parse, bind, and type-check one TypeScript source file.
 ///
 /// Type checking currently covers explicitly annotated variable declarations, simple identifier
-/// assignments, property-only interfaces, and the narrow annotated callable foundation documented
-/// in the repository README. Parser and binder diagnostics are complete to the extent provided by
-/// Oxc, with a narrow compatibility normalization for common unfinished input.
+/// assignments, property-only interfaces, and the narrow annotated callable declaration and
+/// expression milestones documented in the repository README. Parser and binder diagnostics are
+/// complete to the extent provided by Oxc, with a narrow compatibility normalization for common
+/// unfinished input.
 #[must_use]
 pub fn check_source(file_name: &str, source_text: &str) -> CheckResult {
     let Ok(source_type) = SourceType::from_path(file_name) else {

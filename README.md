@@ -29,12 +29,20 @@ Fresh object literals reject excess properties, structural diagnostics point to 
 and array elements, and negative numeric literals are supported. Built-in `Array<T>` is a syntax
 rule within that existing subset and does not introduce general generics.
 
-The completed **annotated callable foundations** milestone also supports named function declarations
-with explicitly typed simple parameters and return types, parameter and function resolution through
-Oxc semantic symbols/references, return-statement checking, and direct calls to named functions.
-Calls report TypeScript-compatible argument and exact-arity diagnostics. Return inference, function
-and arrow expressions, closures, overloads, optional/default/rest/destructured parameters, generics,
-methods, classes, `this`/`super`, and control-flow narrowing remain outside that milestone.
+The completed **annotated callable foundations** milestone supports named function declarations with
+explicitly typed simple parameters and return types, parameter and function resolution through Oxc
+semantic symbols/references, return-statement checking, and direct calls to named functions. Calls
+report TypeScript-compatible argument and exact-arity diagnostics.
+
+The **explicitly annotated callable expressions** milestone extends that representation to arrow and
+ordinary function expressions inferred through a simple variable. Required simply named parameters
+and return types must all be explicit. Concise arrow bodies and block returns are checked, and direct
+calls through the inferred variable reuse the existing argument and exact-arity diagnostics. The
+bounded design is documented in the
+[callable-expression milestone](docs/callable-expression-milestone.md). Contextual typing, inferred
+returns, function-type annotations and general function assignability, closures, overloads,
+optional/default/rest/destructured parameters, generics, async/generators, arbitrary callable
+aliasing, and broader control-flow analysis remain outside this milestone.
 
 The completed **property-only interfaces** milestone supports unique top-level named interfaces,
 including exported declarations, with required or optional statically named properties. Interface

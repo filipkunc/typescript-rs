@@ -83,6 +83,24 @@ selectStatus("pending");
 echo(42);
 "#;
 
+const ANNOTATED_CALLABLE_EXPRESSION_SOURCE: &str = r#"
+type Status = "open" | "closed";
+
+const selectStatus = (status: Status): Status => status;
+const echo = function (value: string): string {
+    return value;
+};
+const count = (value: number): number => {
+    return value;
+};
+
+export const selected: Status = selectStatus("open");
+export const message: string = echo("tsrs");
+export const total: number = count(1);
+selectStatus("pending");
+echo(42);
+"#;
+
 const PROPERTY_INTERFACE_SOURCE: &str = r#"
 type Status = "active" | "disabled";
 
@@ -259,6 +277,12 @@ fn check_file(criterion: &mut Criterion) {
     criterion.bench_function("parse_bind_check/annotated_callables", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", ANNOTATED_CALLABLE_SOURCE));
     });
+    criterion.bench_function(
+        "parse_bind_check/annotated_callable_expressions",
+        |bencher| {
+            bencher.iter(|| check_source("benchmark.ts", ANNOTATED_CALLABLE_EXPRESSION_SOURCE));
+        },
+    );
     criterion.bench_function("parse_bind_check/property_interfaces", |bencher| {
         bencher.iter(|| check_source("benchmark.ts", PROPERTY_INTERFACE_SOURCE));
     });

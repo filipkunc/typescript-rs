@@ -147,7 +147,8 @@ struct Checker<'a> {
     types: TypeStore,
     relations: TypeRelations,
     signatures: SignatureStore,
-    function_signatures: HashMap<SymbolId, SignatureId>,
+    symbol_signatures: HashMap<SymbolId, SignatureId>,
+    callable_expression_signatures: HashMap<u32, (SignatureId, TypeId)>,
     member_state: Option<Box<MemberState<'a>>>,
     symbol_types: HashMap<SymbolId, TypeId>,
     current_signature: Option<SignatureId>,
@@ -159,6 +160,13 @@ struct ClassMemberTypes<'a> {
     static_properties: Vec<ObjectTypeProperty>,
     method_signatures: Vec<(u32, SignatureId, bool)>,
     constructor: Option<&'a MethodDefinition<'a>>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum CallableTypeRegistration {
+    None,
+    TypeOnly,
+    TypeAndSignature,
 }
 
 #[derive(Default)]
@@ -186,13 +194,18 @@ impl<'a> Visit<'a> for Checker<'a> {
             .id
             .as_ref()
             .and_then(|id| id.symbol_id.get())
-            .and_then(|symbol| self.function_signatures.get(&symbol).copied());
+            .and_then(|symbol| self.symbol_signatures.get(&symbol).copied());
         let method_context = self
             .member_state
             .as_ref()
             .and_then(|state| state.method_contexts.get(&function.span.start).copied());
-        self.current_signature =
-            function_signature.or(method_context.map(|(signature, _)| signature));
+        let expression_signature = self
+            .callable_expression_signatures
+            .get(&function.span.start)
+            .map(|(signature, _)| *signature);
+        self.current_signature = function_signature
+            .or(method_context.map(|(signature, _)| signature))
+            .or(expression_signature);
         self.current_this_type = method_context.map(|(_, receiver)| receiver);
         walk_function(self, function, flags);
         self.current_signature = previous_signature;
@@ -230,7 +243,12 @@ impl<'a> Visit<'a> for Checker<'a> {
     }
 
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
-        let previous = self.current_signature.take();
+        let previous = self.current_signature;
+        self.current_signature = self
+            .callable_expression_signatures
+            .get(&arrow.span.start)
+            .map(|(signature, _)| *signature);
+        self.check_arrow_expression_body(arrow);
         walk_arrow_function_expression(self, arrow);
         self.current_signature = previous;
     }
@@ -255,7 +273,8 @@ impl<'a> Checker<'a> {
             types: TypeStore::new(),
             relations: TypeRelations::default(),
             signatures: SignatureStore::default(),
-            function_signatures: HashMap::new(),
+            symbol_signatures: HashMap::new(),
+            callable_expression_signatures: HashMap::new(),
             member_state: None,
             symbol_types: HashMap::new(),
             current_signature: None,
@@ -291,11 +310,11 @@ impl<'a> Checker<'a> {
             &function.params,
             Some(&return_annotation.type_annotation),
             None,
-            false,
+            CallableTypeRegistration::None,
         ) else {
             return;
         };
-        self.function_signatures.insert(function_symbol, signature);
+        self.symbol_signatures.insert(function_symbol, signature);
         debug_assert!(function_type.is_none());
     }
 
@@ -304,7 +323,7 @@ impl<'a> Checker<'a> {
         parameters: &FormalParameters<'a>,
         return_annotation: Option<&TSType<'a>>,
         forced_return: Option<(TypeId, String)>,
-        intern_callable_type: bool,
+        callable_type: CallableTypeRegistration,
     ) -> Option<(SignatureId, Option<TypeId>)> {
         if self.recoveries.iter().any(|recovery| {
             recovery.kind == "MissingParameter"
@@ -352,7 +371,7 @@ impl<'a> Checker<'a> {
             let return_type = self.type_from_annotation(annotation)?;
             (return_type, self.target_text(return_type, Some(annotation)))
         };
-        let callable_parameters = intern_callable_type.then(|| {
+        let callable_parameters = (callable_type != CallableTypeRegistration::None).then(|| {
             signature_parameters
                 .iter()
                 .map(|parameter| parameter.type_id)
@@ -365,13 +384,37 @@ impl<'a> Checker<'a> {
         });
         let function_type =
             callable_parameters.map(|parameters| self.types.function(parameters, return_type));
-        if let Some(function_type) = function_type {
+        if callable_type == CallableTypeRegistration::TypeAndSignature
+            && let Some(function_type) = function_type
+        {
             self.member_state_mut()
                 .type_signatures
                 .insert(function_type, signature);
         }
         self.symbol_types.extend(parameter_symbols);
         Some((signature, function_type))
+    }
+
+    fn register_callable_expression(
+        &mut self,
+        span_start: u32,
+        parameters: &FormalParameters<'a>,
+        return_annotation: &TSType<'a>,
+    ) -> Option<TypeId> {
+        if let Some((_, type_id)) = self.callable_expression_signatures.get(&span_start) {
+            return Some(*type_id);
+        }
+
+        let (signature, type_id) = self.register_annotated_signature(
+            parameters,
+            Some(return_annotation),
+            None,
+            CallableTypeRegistration::TypeOnly,
+        )?;
+        let type_id = type_id.expect("callable expressions intern callable types");
+        self.callable_expression_signatures
+            .insert(span_start, (signature, type_id));
+        Some(type_id)
     }
 
     fn register_class(&mut self, class: &'a Class<'a>) {
@@ -425,7 +468,7 @@ impl<'a> Checker<'a> {
                 &constructor.value.params,
                 None,
                 Some((instance_type, name.to_owned())),
-                false,
+                CallableTypeRegistration::None,
             )
             .map(|(signature, _)| signature)
         } else {
@@ -480,7 +523,7 @@ impl<'a> Checker<'a> {
                         &method.value.params,
                         Some(&return_annotation.type_annotation),
                         None,
-                        true,
+                        CallableTypeRegistration::TypeAndSignature,
                     )?;
                     let type_id = type_id.expect("class methods intern callable types");
                     let target = if method.r#static {
@@ -593,6 +636,36 @@ impl<'a> Checker<'a> {
         ));
     }
 
+    fn check_arrow_expression_body(&mut self, arrow: &ArrowFunctionExpression<'a>) {
+        let (Some(signature_id), Some(expression)) =
+            (self.current_signature, arrow.get_expression())
+        else {
+            return;
+        };
+        let Some(signature) = self.signatures.get(signature_id) else {
+            return;
+        };
+        let target = signature.return_type;
+        let expected = signature.return_diagnostic_name.clone();
+        let Some(actual) = self.type_from_expression(expression, Some(target)) else {
+            return;
+        };
+        if self.relations.is_assignable(&self.types, actual, target) {
+            return;
+        }
+        let actual = self.diagnostic_source_type(actual, target);
+        let detail = self.relation_detail(actual, target);
+        self.diagnostics.push(Diagnostic::new(
+            "TS2322",
+            format!(
+                "Type '{}' is not assignable to type '{expected}'.{detail}",
+                self.types.diagnostic_display(actual)
+            ),
+            Phase::Check,
+            Some(Self::range(expression.span())),
+        ));
+    }
+
     fn check_call_expression(&mut self, call: &CallExpression<'a>) {
         let Some(signature_id) = self.signature_for_call(call) else {
             return;
@@ -686,7 +759,7 @@ impl<'a> Checker<'a> {
         }
         if let Expression::Identifier(identifier) = &call.callee {
             let symbol = self.symbol_for_identifier(identifier)?;
-            if let Some(signature) = self.function_signatures.get(&symbol) {
+            if let Some(signature) = self.symbol_signatures.get(&symbol) {
                 return Some(*signature);
             }
         }
@@ -750,10 +823,10 @@ impl<'a> Checker<'a> {
         let variable_type = if declaration.type_annotation.is_some() {
             declared_type
         } else {
-            declaration
-                .init
-                .as_ref()
-                .and_then(|initializer| self.type_from_expression(initializer, None))
+            declaration.init.as_ref().and_then(|initializer| {
+                self.type_from_callable_expression(initializer)
+                    .or_else(|| self.type_from_expression(initializer, None))
+            })
         };
         let (BindingPattern::BindingIdentifier(identifier), Some(variable_type)) =
             (&declaration.id, variable_type)
@@ -764,6 +837,66 @@ impl<'a> Checker<'a> {
             return;
         };
         self.symbol_types.insert(symbol, variable_type);
+        if declaration.type_annotation.is_none()
+            && let Some(signature) = declaration
+                .init
+                .as_ref()
+                .and_then(|initializer| self.callable_expression_signature(initializer))
+        {
+            self.symbol_signatures.insert(symbol, signature);
+        }
+    }
+
+    fn type_from_callable_expression(&mut self, expression: &Expression<'a>) -> Option<TypeId> {
+        match expression {
+            Expression::ArrowFunctionExpression(arrow)
+                if !arrow.r#async && arrow.type_parameters.is_none() =>
+            {
+                let return_annotation = arrow.return_type.as_ref()?;
+                self.register_callable_expression(
+                    arrow.span.start,
+                    &arrow.params,
+                    &return_annotation.type_annotation,
+                )
+            }
+            Expression::FunctionExpression(function)
+                if function.r#type == FunctionType::FunctionExpression
+                    && !function.generator
+                    && !function.r#async
+                    && !function.declare
+                    && function.type_parameters.is_none()
+                    && function.this_param.is_none()
+                    && function.body.is_some() =>
+            {
+                let return_annotation = function.return_type.as_ref()?;
+                self.register_callable_expression(
+                    function.span.start,
+                    &function.params,
+                    &return_annotation.type_annotation,
+                )
+            }
+            Expression::ParenthesizedExpression(parenthesized) => {
+                self.type_from_callable_expression(&parenthesized.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn callable_expression_signature(&self, expression: &Expression<'a>) -> Option<SignatureId> {
+        match expression {
+            Expression::ArrowFunctionExpression(arrow) => self
+                .callable_expression_signatures
+                .get(&arrow.span.start)
+                .map(|(signature, _)| *signature),
+            Expression::FunctionExpression(function) => self
+                .callable_expression_signatures
+                .get(&function.span.start)
+                .map(|(signature, _)| *signature),
+            Expression::ParenthesizedExpression(parenthesized) => {
+                self.callable_expression_signature(&parenthesized.expression)
+            }
+            _ => None,
+        }
     }
 
     fn check_variable_initializer(
@@ -1016,7 +1149,7 @@ impl<'a> Checker<'a> {
                         &method.params,
                         Some(&return_annotation.type_annotation),
                         None,
-                        true,
+                        CallableTypeRegistration::TypeAndSignature,
                     )?;
                     let type_id = type_id.expect("interface methods intern callable types");
                     Some(ObjectTypeProperty {
