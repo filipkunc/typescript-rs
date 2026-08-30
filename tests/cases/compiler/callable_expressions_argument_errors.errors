@@ -1,0 +1,3 @@
+TS2345@9:8 [check] Argument of type 'number' is not assignable to parameter of type 'string'.
+TS2345@10:14 [check] Argument of type 'string' is not assignable to parameter of type 'number'.
+TS2345@11:11 [check] Argument of type '"pending"' is not assignable to parameter of type '"closed" | "open"'.

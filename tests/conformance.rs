@@ -14,6 +14,10 @@ const REGISTERED_CASES: &[&str] = &[
     "callable_argument_errors.ts",
     "callable_arity_errors.ts",
     "callable_declarations_valid.ts",
+    "callable_expressions_argument_errors.ts",
+    "callable_expressions_arity_errors.ts",
+    "callable_expressions_parameter_return_errors.ts",
+    "callable_expressions_valid.ts",
     "callable_return_errors.ts",
     "callable_symbol_resolution.ts",
     "class_side_errors.ts",
@@ -40,6 +44,8 @@ const REGISTERED_CASES: &[&str] = &[
     "recovered_malformed_expressions.ts",
     "recovered_missing_array_assignment_rhs.ts",
     "recovered_missing_array_spread_argument.ts",
+    "recovered_missing_arrow_function_body_closer.ts",
+    "recovered_missing_arrow_return_type.ts",
     "recovered_missing_assignment_rhs.ts",
     "recovered_missing_call_argument.ts",
     "recovered_missing_call_assignment_rhs.ts",
@@ -109,6 +115,16 @@ fn recovered_missing_array_assignment_rhs() {
 #[test]
 fn recovered_missing_array_spread_argument() {
     run_case("recovered_missing_array_spread_argument.ts");
+}
+
+#[test]
+fn recovered_missing_arrow_function_body_closer() {
+    run_case("recovered_missing_arrow_function_body_closer.ts");
+}
+
+#[test]
+fn recovered_missing_arrow_return_type() {
+    run_case("recovered_missing_arrow_return_type.ts");
 }
 
 #[test]
@@ -299,6 +315,26 @@ fn callable_arity_errors() {
 #[test]
 fn callable_declarations_valid() {
     run_case("callable_declarations_valid.ts");
+}
+
+#[test]
+fn callable_expressions_argument_errors() {
+    run_case("callable_expressions_argument_errors.ts");
+}
+
+#[test]
+fn callable_expressions_arity_errors() {
+    run_case("callable_expressions_arity_errors.ts");
+}
+
+#[test]
+fn callable_expressions_parameter_return_errors() {
+    run_case("callable_expressions_parameter_return_errors.ts");
+}
+
+#[test]
+fn callable_expressions_valid() {
+    run_case("callable_expressions_valid.ts");
 }
 
 #[test]

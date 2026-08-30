@@ -95,7 +95,9 @@ checker:
 5. expression inference and contextual typing (initial object, array, and union-target support is
    in place), followed by control-flow narrowing;
 6. signatures (initial explicitly annotated function declarations and direct calls are in place),
-   followed by generics, intersections, and conditional types.
+   with explicitly annotated callable expressions inferred through simple variables now using the
+   same function identities and signature store, followed by generics, intersections, and
+   conditional types.
 
 Each operation should be introduced by focused conformance cases and measured against the
 existing benchmark before broader upstream suites are enabled.
@@ -168,6 +170,20 @@ constructor/static sides separately and is specified in
 [`class-checker-milestone.md`](class-checker-milestone.md). Broader class syntax and callable
 structural relations remain later checker milestones rather than being accepted only for the editor
 demo.
+
+## Completed checker milestone: explicitly annotated callable expressions
+
+Arrow and ordinary function expressions with required simply named annotated parameters and an
+explicit return annotation now infer a canonical `TypeKind::Function` through a direct variable
+initializer. Their diagnostic-rich signatures remain in `SignatureStore`, parameter symbols are
+available while checking the body, and the variable symbol selects the same signature for direct
+calls. Concise arrow bodies are checked as implicit returns; block bodies reuse return-statement
+checking. Argument types and exact arity reuse the declaration-callable path.
+
+This remains the bounded slice specified in
+[`callable-expression-milestone.md`](callable-expression-milestone.md). It does not add contextual
+typing, inferred return types, general function assignability, broader callable aliasing, or
+control-flow return analysis.
 
 ## Diagnostics and editor use
 
