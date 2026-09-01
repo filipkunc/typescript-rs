@@ -17,11 +17,15 @@ parser, visitors, diagnostics, and semantic crates on one source revision.
 - Fork `main` integrated before merge: `33ac4b0915e66b2908953e85340ad59556449c05`
   (71 commits ahead of the release revision)
 - Playground fork: <https://github.com/filipkunc/playground>
-- Playground branch: `feat/tsrs-checker-playground`
+- Playground recovery branch: `feat/editor-recovery-playground`
 - Baseline playground PR (merged): <https://github.com/filipkunc/playground/pull/1>
 - Complete playground integration PR (merged): <https://github.com/filipkunc/playground/pull/2>
-- Pinned playground revision: `fe4bb0e161948fa15df6e34ac1df25a51ab06f26`
-- Playground `main` merge commit: `85265468c3043b29bff54fa5844850ad45d591a0`
+- Recovery playground `main` merge commit: `85265468c3043b29bff54fa5844850ad45d591a0`
+- Playground checker/AST-lens branch: `feat/tsrs-checker-playground`
+- `tsrs` checker diagnostics revision: `fe4bb0e161948fa15df6e34ac1df25a51ab06f26`
+- Inline AST lens PR (merged): <https://github.com/filipkunc/playground/pull/3>
+- AST lens interaction refinement PR (merged): <https://github.com/filipkunc/playground/pull/4>
+- Pinned playground revision: `91f3945ae79ea2921855adda38b08e53d29bb32b`
 - `typescript-rs` integration PR (merged): <https://github.com/filipkunc/typescript-rs/pull/5>
 - `typescript-rs` `main` merge commit: `b14953f6c66c384872ecd0817180ec4443bbc8f3`
 - Required `tsrs` integration changes: Cargo path dependencies, submodule-aware checkout, and
