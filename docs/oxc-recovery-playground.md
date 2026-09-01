@@ -4,9 +4,13 @@ Status: the pinned fork revisions implement the owned parse-only inspection resp
 Normal/Editor/Compare UI. It renders structural summaries and a collapsible typed-AST tree, keeps
 recovered input away from batch-only consumers, supports named initializer and assignment examples,
 gives zero-width recovery nodes a Monaco caret decoration, expands the narrowest tree path at the
-editor caret, and exposes separately navigable diagnostics and recovery sites. Native inspection
-tests, focused frontend tests, frontend format/lint/build, and an automated headless-Chrome edit
-smoke pass locally. The matching published revisions are recorded in
+editor caret, and exposes separately navigable diagnostics and recovery sites. The main Monaco
+surface also renders that caret path in place: compact icon- and color-coded tags abbreviate node
+kinds, source-range frames show nesting directly around the affected text, and a fixed inspector
+retains the full node name and metadata. Metadata-only punctuation sites participate at their
+insertion point without becoming fake AST children. Native inspection tests, focused frontend
+tests, frontend format/lint/build, and the automated headless-Chrome recovery/tsrs edit smoke pass
+locally. The matching published revisions are recorded in
 [`oxc-fork.md`](oxc-fork.md).
 
 ## Decision
@@ -91,6 +95,18 @@ Clicking or hovering a source-backed node highlights its Monaco range, and movin
 expands the narrowest containing tree path. Zero-width recovery nodes require a dedicated Monaco
 caret/glyph decoration because the playground's existing half-open range check cannot highlight
 an empty span. Multiple missing nodes at one offset must remain separately selectable.
+
+The same path is projected back into the source editor as an inline AST lens. The editor uses large
+source type and reserves smaller rectangular tags for canonical names such as
+`VariableDeclaration`, `VariableDeclarator`, `ObjectExpression`, and `Property`. Icons and stable colors distinguish declarations, containers,
+members, leaves, and recovery without lengthening each label. Thin nested range frames follow the
+actual source spans, similar to a browser element overlay; the caret-selected leaf receives the
+strongest treatment. Horizontally colliding labels use vertical lanes, keeping the child attached
+to its span and moving only its colliding parents upward without reflowing source text. A
+fixed-height breadcrumb below the source retains the full non-`Program`
+path from the containing declaration to the caret node, with byte range and recovery state in
+stable trailing fields. The lens is optional
+presentation state and never changes the inspection response or editor source.
 
 Keep the first UI focused. Scope, symbol, CFG, ESTree, Rust debug text, formatting, and printed
 output remain available in the existing playground, but they do not need side-by-side recovery

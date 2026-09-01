@@ -170,9 +170,11 @@ reevaluation, both outside the authorized publication scope.
 
 The current integration is published as
 `filipkunc/oxc@a2d89696356a5893bd2c0c49ad938088fad1819e` and the UI as
-`filipkunc/playground@fe4bb0e161948fa15df6e34ac1df25a51ab06f26`. They build on the recovery
-baselines merged in each fork's PR 2. Original `oxc-project` submissions are outside the authorized
-publication scope, so the corresponding original-plan items remain open.
+`filipkunc/playground@91f3945ae79ea2921855adda38b08e53d29bb32b`. The checker diagnostics
+foundation is `fe4bb0e161948fa15df6e34ac1df25a51ab06f26`; the UI pin adds the inline AST lens and
+its interaction refinement from playground PRs 3 and 4. They build on the recovery baselines merged
+in each fork's PR 2. Original `oxc-project` submissions are outside the authorized publication
+scope, so the corresponding original-plan items remain open.
 
 ## Release and completion gates
 

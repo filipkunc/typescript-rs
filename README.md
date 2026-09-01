@@ -121,6 +121,13 @@ The pinned [Oxc playground](https://github.com/filipkunc/playground) is availabl
 `vendor/oxc-playground` and builds against this repository's exact `vendor/oxc` revision. It
 provides Monaco source editing, AST exploration, diagnostics, scopes, symbols, and control-flow
 visualization without using a published Oxc package.
+The main editor also provides a caret-driven inline AST lens: large source text remains the primary
+canvas while compact color- and icon-coded tags show the canonical containing node path and thin
+DevTools-style frames mark each node's exact source range. A fixed compact footer shows the full
+logical AST breadcrumb from the containing declaration to the caret node, plus its range and
+recovery state. Zero-width punctuation and
+missing-node recovery sites use the same lens with a distinct recovery treatment, and the **AST**
+button in the inspector toggles the overlay without changing the source.
 The sidebar displays `fork @<sha>` from the linked checkout and points to the corresponding
 `filipkunc/oxc` commit, making the parser implementation under review explicit. The Recovery output
 tab uses a parse-only inspection boundary and can compare Normal and Editor mode without sending a
