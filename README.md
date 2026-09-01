@@ -161,6 +161,24 @@ With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 In VS Code, select **Run Oxc playground** in the Run and Debug view to start the same preview in
 an integrated terminal and open its URL automatically when the server is ready.
 
+For live recovery comparison, select **Run recovery comparison playground**. The compound launch
+starts the playground together with a loopback-only TypeScript-Go inspection service. On first use,
+the launcher fetches the exact revision in `tests/tsgo-reference.txt` into the ignored
+`target/typescript-go-reference` cache; subsequent launches reuse it without asking for a checkout.
+Its adapter reuses the checked-in recovery-manifest probe and exposes the pinned parser, binder, and
+checker through the playground's local development proxy; ordinary builds, CI, and the deployed
+static playground do not require the reference checkout. Set `TSGO_REPO` only to override the
+automatic cache with an existing exact checkout, and set `GO=/path/to/go` when Go cannot be
+discovered.
+
+The Recovery panel labels the complete editor pipeline as **TypeScript-Rust**, the pinned reference
+as **TypeScript-Go**, and unrecovered parsing as **Oxc Normal**. Its diagnostic matrix groups results
+by phase and source location and shows codes, messages, and each parser's recovery representation.
+The same Rust and Go diagnostics appear as independently sourced Monaco markers, including checker
+diagnostics such as an independent `TS2322` after recovered syntax. If the sidecar is not running,
+the existing Oxc and tsrs playground surfaces remain available and the reference column reports
+that it is unavailable.
+
 The setup build may take several minutes. Subsequent source editing in Monaco is immediate;
 `rebuild` is needed only after changing Rust or frontend implementation. The launcher restores the
 generated Oxc browser loader after bundling so building the playground does not leave `vendor/oxc`
@@ -175,7 +193,9 @@ open and after every change. Diagnostics are cleared when a document becomes val
 The adapter converts the checker's UTF-8 byte ranges to the protocol's UTF-16 positions. In the
 supported recovery shapes, a missing variable initializer, assignment right-hand side, or object
 property/array/call operand, list delimiter, type annotation, supported type closer, or supported
-source-backed malformed expression no longer hides independent type diagnostics. The same applies
+source-backed malformed expression no longer hides independent type diagnostics. Missing variable
+declaration separators and invalid identifier suffixes after numeric literals preserve later
+declarations and their independent diagnostics as well. The same applies
 to the supported function, parameter, interface, class, missing-call-closer, and
 missing-declaration-name edits documented in the
 [Stage 3 recovery increment](docs/oxc-function-interface-recovery.md),

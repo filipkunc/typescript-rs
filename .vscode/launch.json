@@ -62,6 +62,20 @@
         "uriFormat": "%s",
         "action": "openExternally"
       }
+    },
+    {
+      "name": "Run TypeScript-Go recovery reference",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "${workspaceFolder}/scripts/typescript-go-recovery",
+      "cwd": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run recovery comparison playground",
+      "configurations": ["Run TypeScript-Go recovery reference", "Run Oxc playground"],
+      "stopAll": true
     }
   ],
   "inputs": [

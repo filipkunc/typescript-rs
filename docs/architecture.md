@@ -37,6 +37,9 @@ argument context also represents an empty comma-delimited argument as `MissingEx
 missing-comma and safe closer recovery. Because punctuation has no AST child slot, Oxc returns an
 owned zero-width recovery event alongside the ordinary object, array, or call node; `check_source`
 uses that metadata to distinguish supported non-fatal syntax from unrelated parser errors.
+Variable declaration lists use the same editor-only separator recovery. An identifier immediately
+following a numeric literal is retained as TypeScript's second recovered declarator instead of
+forcing the lexer to end the file, so later statements still reach semantic and type checking.
 An absent annotation type instead occupies a typed child slot and is represented by the explicit
 zero-width `MissingType` variant. Missing array, parenthesized, and type-argument closers extend the
 same recovery metadata with `]`, `)`, and `>` insertion sites. `tsrs` leaves top-level missing
@@ -152,6 +155,8 @@ assignment right-hand side, or object/array/call operand no longer hides indepen
 diagnostics. The same applies to supported object/array/call list delimiters, and completing the
 expression, punctuation, annotation, type closer, or supported source-backed malformed token
 removes its syntax diagnostic on the next full-document check.
+Missing separators between variable declarators and invalid identifier suffixes after numeric
+literals also preserve subsequent statements and their independent diagnostics.
 Supported parameter, function-body, return-expression, interface, and member-access edits use the
 same full-document recovery loop and retain independent diagnostics.
 An application-shaped 30+ KiB trace exercises seven complete snapshots and asserts that persistent
@@ -184,6 +189,20 @@ visual-diagnostics lab, not an alternate language server: it has no document lif
 model, `tsconfig.json`, module resolution, hover, completion, navigation, or incremental state. The
 VS Code LSP remains the primary real-editor workflow. The complete boundary and verification plan
 are recorded in [`tsrs-playground-milestone.md`](tsrs-playground-milestone.md).
+
+Local recovery development can additionally launch a pinned TypeScript-Go parser/binder/checker
+sidecar.
+The VS Code compound launch prepares the pinned checkout automatically in the ignored
+`target/typescript-go-reference` cache, while `TSGO_REPO` remains available as an explicit override.
+The browser reaches it only through the development server's loopback proxy; the sidecar verifies
+the checkout against `tests/tsgo-reference.txt` before serving and returns the same owned,
+representation-neutral dimensions used by the offline recovery manifest, plus a source-range AST
+tree for caret inspection. The Recovery surface compares TypeScript-Rust (Oxc editor parsing and
+binding followed by tsrs checking), TypeScript-Go, and Oxc normal parsing. Diagnostic codes, phases,
+locations, and recovery representations remain separate fields so identical diagnostics do not
+imply identical recovered ASTs. The TypeScript-Go checker runs against an in-memory program with
+the same strict, ESNext-oriented options used by differential conformance checks, so independent
+checker errors remain visible after parser recovery.
 
 ## Completed checker milestone: callable members and class sides
 
