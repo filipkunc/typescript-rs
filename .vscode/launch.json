@@ -50,6 +50,18 @@
       ],
       "autoAttachChildProcesses": true,
       "preLaunchTask": "prepare: tsrs LSP in VS Code"
+    },
+    {
+      "name": "Run Oxc playground",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "${workspaceFolder}/scripts/oxc-playground serve",
+      "cwd": "${workspaceFolder}",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(http://127\\.0\\.0\\.1:[0-9]+/)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
     }
   ],
   "inputs": [

@@ -151,6 +151,9 @@ With Node.js 22.18 or newer, Corepack/pnpm, and rustup installed:
 ./scripts/oxc-playground rebuild
 ```
 
+In VS Code, select **Run Oxc playground** in the Run and Debug view to start the same preview in
+an integrated terminal and open its URL automatically when the server is ready.
+
 The setup build may take several minutes. Subsequent source editing in Monaco is immediate;
 `rebuild` is needed only after changing Rust or frontend implementation. The launcher restores the
 generated Oxc browser loader after bundling so building the playground does not leave `vendor/oxc`
