@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+listen_address=${TSGO_RECOVERY_LISTEN:-127.0.0.1:4174}
+expected_revision="$(grep -Ev '^[[:space:]]*(#|$)' "${repo_root}/tests/tsgo-reference.txt")"
+explicit_repo=${1:-${TSGO_REPO:-}}
+reference_url=https://github.com/microsoft/typescript-go.git
+
+find_go() {
+  if [[ -n "${GO:-}" ]]; then
+    printf '%s\n' "${GO}"
+    return
+  fi
+  if command -v go >/dev/null 2>&1; then
+    command -v go
+    return
+  fi
+
+  local candidate
+  for candidate in \
+    "${HOME}/.local/go/bin/go" \
+    /usr/local/go/bin/go \
+    /opt/homebrew/bin/go; do
+    if [[ -x "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return
+    fi
+  done
+
+  echo "Go is required to run the TypeScript-Go recovery reference." >&2
+  echo "Install Go 1.26 or newer, or set GO=/path/to/go." >&2
+  exit 1
+}
+
+verify_revision() {
+  local repository=$1
+  local actual_revision
+  actual_revision="$(git -C "${repository}" rev-parse HEAD)"
+  if [[ "${actual_revision}" != "${expected_revision}" ]]; then
+    echo "TypeScript-Go revision mismatch: expected ${expected_revision}, found ${actual_revision}" >&2
+    exit 2
+  fi
+}
+
+prepare_cached_checkout() {
+  local repository="${repo_root}/target/typescript-go-reference"
+
+  mkdir -p -- "$(dirname -- "${repository}")"
+  if [[ ! -e "${repository}" ]]; then
+    echo "Preparing pinned TypeScript-Go ${expected_revision}..." >&2
+    git init --quiet "${repository}"
+    git -C "${repository}" remote add origin "${reference_url}"
+  elif ! git -C "${repository}" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "${repository} exists but is not a Git checkout; remove or rename it and retry." >&2
+    exit 2
+  fi
+
+  if ! git -C "${repository}" cat-file -e "${expected_revision}^{commit}" 2>/dev/null; then
+    echo "Fetching pinned TypeScript-Go ${expected_revision}..." >&2
+    git -C "${repository}" fetch --depth 1 "${reference_url}" "${expected_revision}"
+  fi
+  if [[ "$(git -C "${repository}" rev-parse HEAD 2>/dev/null || true)" != "${expected_revision}" ]]; then
+    git -C "${repository}" checkout --quiet --detach "${expected_revision}"
+  fi
+
+  printf '%s\n' "${repository}"
+}
+
+if [[ -n "${explicit_repo}" ]]; then
+  tsgo_repo="$(cd -- "${explicit_repo}" && pwd)"
+  verify_revision "${tsgo_repo}"
+else
+  tsgo_repo="$(prepare_cached_checkout)"
+fi
+
+go_command="$(find_go)"
+echo "Using TypeScript-Go checkout ${tsgo_repo}"
+echo "Using Go ${go_command}"
+
+probe_dir="$(mktemp -d "${tsgo_repo}/.tsrs-recovery-service.XXXXXX")"
+cleanup() {
+  rm -rf -- "${probe_dir}"
+}
+trap cleanup EXIT INT TERM
+
+cp -- "${repo_root}/tools/tsgo-recovery-probe/main.go" "${probe_dir}/main.go"
+
+cd -- "${tsgo_repo}"
+service_binary="${repo_root}/target/typescript-go-recovery-service"
+"${go_command}" build -o "${service_binary}" "${probe_dir}/main.go"
+cleanup
+trap - EXIT INT TERM
+exec "${service_binary}" --serve "${listen_address}" --revision "${expected_revision}"

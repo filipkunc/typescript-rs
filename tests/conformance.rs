@@ -41,6 +41,7 @@ const REGISTERED_CASES: &[&str] = &[
     "object_type_optional_properties.ts",
     "object_type_property_types.ts",
     "primitive_literals.ts",
+    "recovered_invalid_numeric_suffix.ts",
     "recovered_malformed_expressions.ts",
     "recovered_missing_array_assignment_rhs.ts",
     "recovered_missing_array_spread_argument.ts",
@@ -72,6 +73,7 @@ const REGISTERED_CASES: &[&str] = &[
     "recovered_missing_return_type.ts",
     "recovered_missing_type_annotation.ts",
     "recovered_missing_type_delimiters.ts",
+    "recovered_missing_variable_declaration_separator.ts",
     "simple_assignment_errors.ts",
     "unexpected_statement_token.ts",
     "valid_primitive_literals.ts",
@@ -102,6 +104,16 @@ fn recovered_missing_initializer_before_same_line_declaration() {
 #[test]
 fn recovered_malformed_expressions() {
     run_case("recovered_malformed_expressions.ts");
+}
+
+#[test]
+fn recovered_invalid_numeric_suffix() {
+    run_case("recovered_invalid_numeric_suffix.ts");
+}
+
+#[test]
+fn recovered_missing_variable_declaration_separator() {
+    run_case("recovered_missing_variable_declaration_separator.ts");
 }
 
 #[test]

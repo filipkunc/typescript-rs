@@ -196,6 +196,11 @@ const = 1;
 const intact: number = "wrong";
 "#;
 
+const RECOVERED_INVALID_NUMERIC_SUFFIX_SOURCE: &str = r#"
+const broken =123s
+const intact: number = "wrong";
+"#;
+
 const RECOVERED_MISSING_LIST_DELIMITERS_SOURCE: &str = r#"
 type Shape = { first: number; second: number };
 const object: Shape = { first: 1 second: "wrong" };
@@ -310,6 +315,7 @@ fn class_benchmarks(criterion: &mut Criterion) {
 
 fn editor_recovery_benchmarks(criterion: &mut Criterion) {
     editor_initializer_recovery_benchmarks(criterion);
+    editor_declaration_recovery_benchmarks(criterion);
     criterion.bench_function(
         "parse_bind_check/editor_recovery_missing_assignment_rhs",
         |bencher| {
@@ -343,13 +349,6 @@ fn editor_recovery_benchmarks(criterion: &mut Criterion) {
         "parse_bind_check/editor_recovery_missing_call_closer",
         |bencher| {
             bencher.iter(|| check_source("benchmark.ts", RECOVERED_MISSING_CALL_CLOSER_SOURCE));
-        },
-    );
-    criterion.bench_function(
-        "parse_bind_check/editor_recovery_missing_declaration_name",
-        |bencher| {
-            bencher
-                .iter(|| check_source("benchmark.ts", RECOVERED_MISSING_DECLARATION_NAME_SOURCE));
         },
     );
     criterion.bench_function(
@@ -402,6 +401,22 @@ fn editor_recovery_benchmarks(criterion: &mut Criterion) {
         "parse_bind_check/editor_recovery_malformed_expression",
         |bencher| {
             bencher.iter(|| check_source("benchmark.ts", RECOVERED_MALFORMED_EXPRESSION_SOURCE));
+        },
+    );
+}
+
+fn editor_declaration_recovery_benchmarks(criterion: &mut Criterion) {
+    criterion.bench_function(
+        "parse_bind_check/editor_recovery_missing_declaration_name",
+        |bencher| {
+            bencher
+                .iter(|| check_source("benchmark.ts", RECOVERED_MISSING_DECLARATION_NAME_SOURCE));
+        },
+    );
+    criterion.bench_function(
+        "parse_bind_check/editor_recovery_invalid_numeric_suffix",
+        |bencher| {
+            bencher.iter(|| check_source("benchmark.ts", RECOVERED_INVALID_NUMERIC_SUFFIX_SOURCE));
         },
     );
 }

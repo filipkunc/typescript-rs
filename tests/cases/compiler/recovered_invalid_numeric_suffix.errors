@@ -1,0 +1,2 @@
+TS1351@2:18 [parse] An identifier or keyword cannot immediately follow a numeric literal.
+TS2322@3:7 [check] Type 'string' is not assignable to type 'number'.
